@@ -8,13 +8,10 @@ spring:
     url: jdbc:postgresql://localhost:5432/payment_db
     username: postgres
     password: postgres
-    driver-class-name: org.postgresql.Driver
   jpa:
+    open-in-view: false
     hibernate:
       ddl-auto: update
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
 
 logging:
   level:
