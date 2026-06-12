@@ -4,14 +4,19 @@ server:
 spring:
   application:
     name: catalog-service
+
   datasource:
     url: jdbc:postgresql://localhost:5432/catalog_db
     username: postgres
     password: postgres
+
   jpa:
     open-in-view: false
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
+      
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.yml    
 
 logging:
   level:

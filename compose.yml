@@ -1,0 +1,15 @@
+services:
+  catalog-postgres:
+    image: postgres:16-alpine
+    container_name: catalog-postgres
+    environment:
+      POSTGRES_DB: ${CATALOG_DB_NAME}
+      POSTGRES_USER: ${CATALOG_DB_USER}
+      POSTGRES_PASSWORD: ${CATALOG_DB_PASSWORD}
+    ports:
+      - "${CATALOG_DB_PORT}:5432"
+    volumes:
+      - catalog_postgres_data:/var/lib/postgresql/data
+
+volumes:
+  catalog_postgres_data:
