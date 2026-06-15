@@ -1,5 +1,6 @@
 package com.coolonlineshop.catalog.controller;
 
+import com.coolonlineshop.catalog.dto.ProductCreateRequest;
 import com.coolonlineshop.catalog.dto.ProductPageResponse;
 import com.coolonlineshop.catalog.dto.ProductResponse;
 import com.coolonlineshop.catalog.exception.GlobalExceptionHandler;
@@ -10,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -17,8 +19,10 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -73,6 +77,37 @@ class ProductControllerTest {
     }
 
     @Test
+    void createProductReturnsCreatedProduct() throws Exception {
+        ProductResponse product = createProduct(
+                3L,
+                "Mechanical Keyboard",
+                "Compact mechanical keyboard",
+                new BigDecimal("89.99"),
+                15
+        );
+
+        when(productService.createProduct(any(ProductCreateRequest.class))).thenReturn(product);
+
+        mockMvc.perform(post("/products")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "Mechanical Keyboard",
+                                  "description": "Compact mechanical keyboard",
+                                  "price": 89.99,
+                                  "categoryId": 1,
+                                  "availableQuantity": 15
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value(3))
+                .andExpect(jsonPath("$.name").value("Mechanical Keyboard"))
+                .andExpect(jsonPath("$.description").value("Compact mechanical keyboard"))
+                .andExpect(jsonPath("$.categoryId").value(1))
+                .andExpect(jsonPath("$.availableQuantity").value(15));
+    }
+
+    @Test
     void getProductByIdReturnsNotFoundWhenProductDoesNotExist() throws Exception {
         when(productService.getProductById(999L)).thenThrow(new ProductNotFoundException(999L));
 
@@ -84,13 +119,23 @@ class ProductControllerTest {
     }
 
     private ProductResponse createProduct(Long id, String name) {
+        return createProduct(id, name, "Compact wireless mouse", new BigDecimal("29.99"), 50);
+    }
+
+    private ProductResponse createProduct(
+            Long id,
+            String name,
+            String description,
+            BigDecimal price,
+            Integer availableQuantity
+    ) {
         return new ProductResponse(
                 id,
                 name,
-                "Compact wireless mouse",
-                new BigDecimal("29.99"),
+                description,
+                price,
                 1L,
-                50,
+                availableQuantity,
                 LocalDateTime.parse("2026-06-12T12:00:00"),
                 LocalDateTime.parse("2026-06-12T12:00:00")
         );

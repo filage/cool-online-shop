@@ -2,6 +2,8 @@ package com.coolonlineshop.catalog.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
@@ -13,6 +15,7 @@ import java.time.LocalDateTime;
 public class Product {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @Column(nullable = false)
@@ -34,6 +37,27 @@ public class Product {
 
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
+
+    public Product() {
+    }
+
+    public Product(
+            String name,
+            String description,
+            BigDecimal price,
+            Long categoryId,
+            Integer availableQuantity,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt
+    ) {
+        this.name = name;
+        this.description = description;
+        this.price = price;
+        this.categoryId = categoryId;
+        this.availableQuantity = availableQuantity;
+        this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
+    }
 
     public Long getId() {
         return id;

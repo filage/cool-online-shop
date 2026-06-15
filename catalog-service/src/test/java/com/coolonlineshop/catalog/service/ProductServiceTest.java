@@ -1,5 +1,6 @@
 package com.coolonlineshop.catalog.service;
 
+import com.coolonlineshop.catalog.dto.ProductCreateRequest;
 import com.coolonlineshop.catalog.dto.ProductPageResponse;
 import com.coolonlineshop.catalog.dto.ProductResponse;
 import com.coolonlineshop.catalog.entity.Product;
@@ -7,11 +8,12 @@ import com.coolonlineshop.catalog.exception.ProductNotFoundException;
 import com.coolonlineshop.catalog.repository.ProductRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
@@ -20,7 +22,10 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -68,6 +73,42 @@ class ProductServiceTest {
         assertEquals("Wireless Mouse", response.items().get(0).name());
         assertEquals(2L, response.items().get(1).id());
         assertEquals("Spring Boot Guide", response.items().get(1).name());
+    }
+
+    @Test
+    void createProductSavesProductAndReturnsProductResponse() {
+        ProductCreateRequest request = new ProductCreateRequest(
+                "Mechanical Keyboard",
+                "Compact mechanical keyboard",
+                new BigDecimal("89.99"),
+                1L,
+                15
+        );
+        Product savedProduct = createProduct(3L, "Mechanical Keyboard");
+        ReflectionTestUtils.setField(savedProduct, "description", "Compact mechanical keyboard");
+        ReflectionTestUtils.setField(savedProduct, "price", new BigDecimal("89.99"));
+        ReflectionTestUtils.setField(savedProduct, "availableQuantity", 15);
+        when(productRepository.save(any(Product.class))).thenReturn(savedProduct);
+
+        ProductResponse response = productService.createProduct(request);
+
+        ArgumentCaptor<Product> productCaptor = ArgumentCaptor.forClass(Product.class);
+        verify(productRepository).save(productCaptor.capture());
+        Product productToSave = productCaptor.getValue();
+        assertEquals("Mechanical Keyboard", productToSave.getName());
+        assertEquals("Compact mechanical keyboard", productToSave.getDescription());
+        assertEquals(new BigDecimal("89.99"), productToSave.getPrice());
+        assertEquals(1L, productToSave.getCategoryId());
+        assertEquals(15, productToSave.getAvailableQuantity());
+        assertNotNull(productToSave.getCreatedAt());
+        assertEquals(productToSave.getCreatedAt(), productToSave.getUpdatedAt());
+
+        assertEquals(3L, response.id());
+        assertEquals("Mechanical Keyboard", response.name());
+        assertEquals("Compact mechanical keyboard", response.description());
+        assertEquals(new BigDecimal("89.99"), response.price());
+        assertEquals(1L, response.categoryId());
+        assertEquals(15, response.availableQuantity());
     }
 
     @Test

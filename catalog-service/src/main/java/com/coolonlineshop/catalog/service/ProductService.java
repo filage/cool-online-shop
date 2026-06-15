@@ -1,5 +1,6 @@
 package com.coolonlineshop.catalog.service;
 
+import com.coolonlineshop.catalog.dto.ProductCreateRequest;
 import com.coolonlineshop.catalog.dto.ProductPageResponse;
 import com.coolonlineshop.catalog.dto.ProductResponse;
 import com.coolonlineshop.catalog.entity.Product;
@@ -8,6 +9,8 @@ import com.coolonlineshop.catalog.repository.ProductRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+
+import java.time.LocalDateTime;
 
 @Service
 public class ProductService {
@@ -35,6 +38,23 @@ public class ProductService {
                 productPage.getTotalElements(),
                 productPage.getTotalPages()
         );
+    }
+
+    public ProductResponse createProduct(ProductCreateRequest request) {
+        LocalDateTime now = LocalDateTime.now();
+        Product product = new Product(
+                request.name(),
+                request.description(),
+                request.price(),
+                request.categoryId(),
+                request.availableQuantity(),
+                now,
+                now
+        );
+
+        Product savedProduct = productRepository.save(product);
+
+        return toResponse(savedProduct);
     }
 
     private ProductResponse toResponse(Product product) {
