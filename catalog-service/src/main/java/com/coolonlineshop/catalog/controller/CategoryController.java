@@ -1,9 +1,15 @@
 package com.coolonlineshop.catalog.controller;
 
+import com.coolonlineshop.catalog.dto.CategoryCreateRequest;
 import com.coolonlineshop.catalog.dto.CategoryResponse;
 import com.coolonlineshop.catalog.service.CategoryService;
+import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -21,5 +27,11 @@ public class CategoryController {
     @GetMapping
     public List<CategoryResponse> getCategories() {
         return categoryService.getCategories();
+    }
+
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    public CategoryResponse createCategory(@Valid @RequestBody CategoryCreateRequest request) {
+        return categoryService.createCategory(request);
     }
 }

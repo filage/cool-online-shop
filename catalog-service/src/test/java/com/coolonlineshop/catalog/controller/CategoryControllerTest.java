@@ -1,17 +1,21 @@
 package com.coolonlineshop.catalog.controller;
 
+import com.coolonlineshop.catalog.dto.CategoryCreateRequest;
 import com.coolonlineshop.catalog.dto.CategoryResponse;
 import com.coolonlineshop.catalog.service.CategoryService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -46,5 +50,28 @@ class CategoryControllerTest {
                 .andExpect(jsonPath("$[1].id").value(2))
                 .andExpect(jsonPath("$[1].name").value("Books"))
                 .andExpect(jsonPath("$[1].description").value("Printed and digital books"));
+    }
+
+    @Test
+    void createCategoryReturnsCreatedCategory() throws Exception {
+        CategoryResponse category = new CategoryResponse(
+                3L,
+                "Home Office",
+                "Products for remote work and home offices"
+        );
+        when(categoryService.createCategory(any(CategoryCreateRequest.class))).thenReturn(category);
+
+        mockMvc.perform(post("/categories")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "Home Office",
+                                  "description": "Products for remote work and home offices"
+                                }
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value(3))
+                .andExpect(jsonPath("$.name").value("Home Office"))
+                .andExpect(jsonPath("$.description").value("Products for remote work and home offices"));
     }
 }
