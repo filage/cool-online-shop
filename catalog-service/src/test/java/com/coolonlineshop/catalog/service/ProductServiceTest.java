@@ -3,6 +3,7 @@ package com.coolonlineshop.catalog.service;
 import com.coolonlineshop.catalog.dto.ProductCreateRequest;
 import com.coolonlineshop.catalog.dto.ProductPageResponse;
 import com.coolonlineshop.catalog.dto.ProductResponse;
+import com.coolonlineshop.catalog.dto.ProductUpdateRequest;
 import com.coolonlineshop.catalog.entity.Product;
 import com.coolonlineshop.catalog.exception.ProductNotFoundException;
 import com.coolonlineshop.catalog.repository.ProductRepository;
@@ -25,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -109,6 +111,63 @@ class ProductServiceTest {
         assertEquals(new BigDecimal("89.99"), response.price());
         assertEquals(1L, response.categoryId());
         assertEquals(15, response.availableQuantity());
+    }
+
+    @Test
+    void updateProductUpdatesProductAndReturnsProductResponse() {
+        Product product = createProduct(1L, "Wireless Mouse");
+        LocalDateTime createdAt = product.getCreatedAt();
+        ProductUpdateRequest request = new ProductUpdateRequest(
+                "Updated Mouse",
+                "Updated wireless mouse",
+                new BigDecimal("34.99"),
+                1L,
+                40
+        );
+        when(productRepository.findById(1L)).thenReturn(Optional.of(product));
+        when(productRepository.save(any(Product.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ProductResponse response = productService.updateProduct(1L, request);
+
+        ArgumentCaptor<Product> productCaptor = ArgumentCaptor.forClass(Product.class);
+        verify(productRepository).save(productCaptor.capture());
+        Product productToSave = productCaptor.getValue();
+        assertEquals(1L, productToSave.getId());
+        assertEquals("Updated Mouse", productToSave.getName());
+        assertEquals("Updated wireless mouse", productToSave.getDescription());
+        assertEquals(new BigDecimal("34.99"), productToSave.getPrice());
+        assertEquals(1L, productToSave.getCategoryId());
+        assertEquals(40, productToSave.getAvailableQuantity());
+        assertEquals(createdAt, productToSave.getCreatedAt());
+        assertNotNull(productToSave.getUpdatedAt());
+
+        assertEquals(1L, response.id());
+        assertEquals("Updated Mouse", response.name());
+        assertEquals("Updated wireless mouse", response.description());
+        assertEquals(new BigDecimal("34.99"), response.price());
+        assertEquals(1L, response.categoryId());
+        assertEquals(40, response.availableQuantity());
+        assertEquals(createdAt, response.createdAt());
+    }
+
+    @Test
+    void updateProductThrowsExceptionWhenProductDoesNotExist() {
+        ProductUpdateRequest request = new ProductUpdateRequest(
+                "Updated Mouse",
+                "Updated wireless mouse",
+                new BigDecimal("34.99"),
+                1L,
+                40
+        );
+        when(productRepository.findById(999L)).thenReturn(Optional.empty());
+
+        ProductNotFoundException exception = assertThrows(
+                ProductNotFoundException.class,
+                () -> productService.updateProduct(999L, request)
+        );
+
+        assertEquals("Product with id 999 not found", exception.getMessage());
+        verify(productRepository, never()).save(any(Product.class));
     }
 
     @Test

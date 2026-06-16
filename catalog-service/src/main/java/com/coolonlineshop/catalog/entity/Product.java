@@ -59,6 +59,22 @@ public class Product {
         this.updatedAt = updatedAt;
     }
 
+    public void update(
+            String name,
+            String description,
+            BigDecimal price,
+            Long categoryId,
+            Integer availableQuantity,
+            LocalDateTime updatedAt
+    ) {
+        this.name = name;
+        this.description = description;
+        this.price = price;
+        this.categoryId = categoryId;
+        this.availableQuantity = availableQuantity;
+        this.updatedAt = updatedAt;
+    }
+
     public Long getId() {
         return id;
     }
@@ -86,7 +102,7 @@ public class Product {
     public LocalDateTime getCreatedAt() {
         return createdAt;
     }
-    
+
     public LocalDateTime getUpdatedAt() {
         return updatedAt;
     }

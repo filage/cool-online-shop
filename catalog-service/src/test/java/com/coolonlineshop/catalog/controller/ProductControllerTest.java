@@ -3,6 +3,7 @@ package com.coolonlineshop.catalog.controller;
 import com.coolonlineshop.catalog.dto.ProductCreateRequest;
 import com.coolonlineshop.catalog.dto.ProductPageResponse;
 import com.coolonlineshop.catalog.dto.ProductResponse;
+import com.coolonlineshop.catalog.dto.ProductUpdateRequest;
 import com.coolonlineshop.catalog.exception.GlobalExceptionHandler;
 import com.coolonlineshop.catalog.exception.ProductNotFoundException;
 import com.coolonlineshop.catalog.service.ProductService;
@@ -23,6 +24,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -105,6 +107,59 @@ class ProductControllerTest {
                 .andExpect(jsonPath("$.description").value("Compact mechanical keyboard"))
                 .andExpect(jsonPath("$.categoryId").value(1))
                 .andExpect(jsonPath("$.availableQuantity").value(15));
+    }
+
+    @Test
+    void updateProductReturnsUpdatedProduct() throws Exception {
+        ProductResponse product = createProduct(
+                1L,
+                "Updated Mouse",
+                "Updated wireless mouse",
+                new BigDecimal("34.99"),
+                40
+        );
+
+        when(productService.updateProduct(any(Long.class), any(ProductUpdateRequest.class))).thenReturn(product);
+
+        mockMvc.perform(put("/products/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "Updated Mouse",
+                                  "description": "Updated wireless mouse",
+                                  "price": 34.99,
+                                  "categoryId": 1,
+                                  "availableQuantity": 40
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1))
+                .andExpect(jsonPath("$.name").value("Updated Mouse"))
+                .andExpect(jsonPath("$.description").value("Updated wireless mouse"))
+                .andExpect(jsonPath("$.categoryId").value(1))
+                .andExpect(jsonPath("$.availableQuantity").value(40));
+    }
+
+    @Test
+    void updateProductReturnsNotFoundWhenProductDoesNotExist() throws Exception {
+        when(productService.updateProduct(any(Long.class), any(ProductUpdateRequest.class)))
+                .thenThrow(new ProductNotFoundException(999L));
+
+        mockMvc.perform(put("/products/999")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "Updated Mouse",
+                                  "description": "Updated wireless mouse",
+                                  "price": 34.99,
+                                  "categoryId": 1,
+                                  "availableQuantity": 40
+                                }
+                                """))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.title").value("Product not found"))
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.detail").value("Product with id 999 not found"));
     }
 
     @Test

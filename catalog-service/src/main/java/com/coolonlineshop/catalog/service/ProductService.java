@@ -3,6 +3,7 @@ package com.coolonlineshop.catalog.service;
 import com.coolonlineshop.catalog.dto.ProductCreateRequest;
 import com.coolonlineshop.catalog.dto.ProductPageResponse;
 import com.coolonlineshop.catalog.dto.ProductResponse;
+import com.coolonlineshop.catalog.dto.ProductUpdateRequest;
 import com.coolonlineshop.catalog.entity.Product;
 import com.coolonlineshop.catalog.exception.ProductNotFoundException;
 import com.coolonlineshop.catalog.repository.ProductRepository;
@@ -55,6 +56,23 @@ public class ProductService {
         Product savedProduct = productRepository.save(product);
 
         return toResponse(savedProduct);
+    }
+
+    public ProductResponse updateProduct(Long id, ProductUpdateRequest request) {
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new ProductNotFoundException(id));
+
+        product.update(
+                request.name(),
+                request.description(),
+                request.price(),
+                request.categoryId(),
+                request.availableQuantity(),
+                LocalDateTime.now()
+        );
+        Product updatedProduct = productRepository.save(product);
+
+        return toResponse(updatedProduct);
     }
 
     private ProductResponse toResponse(Product product) {
