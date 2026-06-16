@@ -1,0 +1,50 @@
+package com.coolonlineshop.catalog.controller;
+
+import com.coolonlineshop.catalog.dto.CategoryResponse;
+import com.coolonlineshop.catalog.service.CategoryService;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
+
+import java.util.List;
+
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+@WebMvcTest(CategoryController.class)
+class CategoryControllerTest {
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @MockitoBean
+    private CategoryService categoryService;
+
+    @Test
+    void getCategoriesReturnsCategories() throws Exception {
+        CategoryResponse firstCategory = new CategoryResponse(
+                1L,
+                "Electronics",
+                "Electronic devices and accessories"
+        );
+        CategoryResponse secondCategory = new CategoryResponse(
+                2L,
+                "Books",
+                "Printed and digital books"
+        );
+        when(categoryService.getCategories()).thenReturn(List.of(firstCategory, secondCategory));
+
+        mockMvc.perform(get("/categories"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(1))
+                .andExpect(jsonPath("$[0].name").value("Electronics"))
+                .andExpect(jsonPath("$[0].description").value("Electronic devices and accessories"))
+                .andExpect(jsonPath("$[1].id").value(2))
+                .andExpect(jsonPath("$[1].name").value("Books"))
+                .andExpect(jsonPath("$[1].description").value("Printed and digital books"));
+    }
+}
