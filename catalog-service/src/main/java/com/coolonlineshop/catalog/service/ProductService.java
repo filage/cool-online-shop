@@ -23,14 +23,14 @@ public class ProductService {
     }
 
     public ProductResponse getProductById(Long id) {
-        Product product = productRepository.findById(id)
+        Product product = productRepository.findByIdAndDeletedFalse(id)
                 .orElseThrow(() -> new ProductNotFoundException(id));
 
         return toResponse(product);
     }
 
     public ProductPageResponse getProducts(Pageable pageable) {
-        Page<Product> productPage = productRepository.findAll(pageable);
+        Page<Product> productPage = productRepository.findByDeletedFalse(pageable);
 
         return new ProductPageResponse(
                 productPage.getContent().stream().map(this::toResponse).toList(),
@@ -59,7 +59,7 @@ public class ProductService {
     }
 
     public ProductResponse updateProduct(Long id, ProductUpdateRequest request) {
-        Product product = productRepository.findById(id)
+        Product product = productRepository.findByIdAndDeletedFalse(id)
                 .orElseThrow(() -> new ProductNotFoundException(id));
 
         product.update(
@@ -73,6 +73,14 @@ public class ProductService {
         Product updatedProduct = productRepository.save(product);
 
         return toResponse(updatedProduct);
+    }
+
+    public void deleteProduct(Long id) {
+        Product product = productRepository.findByIdAndDeletedFalse(id)
+                .orElseThrow(() -> new ProductNotFoundException(id));
+
+        product.markDeleted(LocalDateTime.now());
+        productRepository.save(product);
     }
 
     private ProductResponse toResponse(Product product) {

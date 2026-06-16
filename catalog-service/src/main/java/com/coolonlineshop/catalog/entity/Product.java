@@ -38,6 +38,9 @@ public class Product {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
+    @Column(nullable = false)
+    private boolean deleted;
+
     public Product() {
     }
 
@@ -75,6 +78,11 @@ public class Product {
         this.updatedAt = updatedAt;
     }
 
+    public void markDeleted(LocalDateTime updatedAt) {
+        this.deleted = true;
+        this.updatedAt = updatedAt;
+    }
+
     public Long getId() {
         return id;
     }
@@ -105,5 +113,9 @@ public class Product {
 
     public LocalDateTime getUpdatedAt() {
         return updatedAt;
+    }
+
+    public boolean isDeleted() {
+        return deleted;
     }
 }

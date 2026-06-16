@@ -21,7 +21,9 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -156,6 +158,23 @@ class ProductControllerTest {
                                   "availableQuantity": 40
                                 }
                                 """))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.title").value("Product not found"))
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.detail").value("Product with id 999 not found"));
+    }
+
+    @Test
+    void deleteProductReturnsNoContent() throws Exception {
+        mockMvc.perform(delete("/products/1"))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void deleteProductReturnsNotFoundWhenProductDoesNotExist() throws Exception {
+        doThrow(new ProductNotFoundException(999L)).when(productService).deleteProduct(999L);
+
+        mockMvc.perform(delete("/products/999"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.title").value("Product not found"))
                 .andExpect(jsonPath("$.status").value(404))

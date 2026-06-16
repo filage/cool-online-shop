@@ -42,7 +42,7 @@ class ProductServiceTest {
     @Test
     void getProductByIdReturnsProductResponse() {
         Product product = createProduct(1L, "Wireless Mouse");
-        when(productRepository.findById(1L)).thenReturn(Optional.of(product));
+        when(productRepository.findByIdAndDeletedFalse(1L)).thenReturn(Optional.of(product));
 
         ProductResponse response = productService.getProductById(1L);
 
@@ -61,7 +61,7 @@ class ProductServiceTest {
         Product firstProduct = createProduct(1L, "Wireless Mouse");
         Product secondProduct = createProduct(2L, "Spring Boot Guide");
         PageRequest pageable = PageRequest.of(0, 20);
-        when(productRepository.findAll(pageable))
+        when(productRepository.findByDeletedFalse(pageable))
                 .thenReturn(new PageImpl<>(List.of(firstProduct, secondProduct), pageable, 2));
 
         ProductPageResponse response = productService.getProducts(pageable);
@@ -124,7 +124,7 @@ class ProductServiceTest {
                 1L,
                 40
         );
-        when(productRepository.findById(1L)).thenReturn(Optional.of(product));
+        when(productRepository.findByIdAndDeletedFalse(1L)).thenReturn(Optional.of(product));
         when(productRepository.save(any(Product.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         ProductResponse response = productService.updateProduct(1L, request);
@@ -159,7 +159,7 @@ class ProductServiceTest {
                 1L,
                 40
         );
-        when(productRepository.findById(999L)).thenReturn(Optional.empty());
+        when(productRepository.findByIdAndDeletedFalse(999L)).thenReturn(Optional.empty());
 
         ProductNotFoundException exception = assertThrows(
                 ProductNotFoundException.class,
@@ -171,8 +171,39 @@ class ProductServiceTest {
     }
 
     @Test
+    void deleteProductMarksProductAsDeleted() {
+        Product product = createProduct(1L, "Wireless Mouse");
+        LocalDateTime createdAt = product.getCreatedAt();
+        when(productRepository.findByIdAndDeletedFalse(1L)).thenReturn(Optional.of(product));
+
+        productService.deleteProduct(1L);
+
+        ArgumentCaptor<Product> productCaptor = ArgumentCaptor.forClass(Product.class);
+        verify(productRepository).save(productCaptor.capture());
+        Product productToSave = productCaptor.getValue();
+        assertEquals(1L, productToSave.getId());
+        assertEquals("Wireless Mouse", productToSave.getName());
+        assertEquals(createdAt, productToSave.getCreatedAt());
+        assertEquals(true, productToSave.isDeleted());
+        assertNotNull(productToSave.getUpdatedAt());
+    }
+
+    @Test
+    void deleteProductThrowsExceptionWhenProductDoesNotExist() {
+        when(productRepository.findByIdAndDeletedFalse(999L)).thenReturn(Optional.empty());
+
+        ProductNotFoundException exception = assertThrows(
+                ProductNotFoundException.class,
+                () -> productService.deleteProduct(999L)
+        );
+
+        assertEquals("Product with id 999 not found", exception.getMessage());
+        verify(productRepository, never()).save(any(Product.class));
+    }
+
+    @Test
     void getProductByIdThrowsExceptionWhenProductDoesNotExist() {
-        when(productRepository.findById(999L)).thenReturn(Optional.empty());
+        when(productRepository.findByIdAndDeletedFalse(999L)).thenReturn(Optional.empty());
 
         ProductNotFoundException exception = assertThrows(
                 ProductNotFoundException.class,
@@ -194,6 +225,7 @@ class ProductServiceTest {
         ReflectionTestUtils.setField(product, "availableQuantity", 50);
         ReflectionTestUtils.setField(product, "createdAt", timestamp);
         ReflectionTestUtils.setField(product, "updatedAt", timestamp);
+        ReflectionTestUtils.setField(product, "deleted", false);
 
         return product;
     }
