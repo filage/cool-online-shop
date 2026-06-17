@@ -5,7 +5,9 @@ import com.coolonlineshop.catalog.dto.ProductPageResponse;
 import com.coolonlineshop.catalog.dto.ProductResponse;
 import com.coolonlineshop.catalog.dto.ProductUpdateRequest;
 import com.coolonlineshop.catalog.entity.Product;
+import com.coolonlineshop.catalog.exception.CategoryNotFoundException;
 import com.coolonlineshop.catalog.exception.ProductNotFoundException;
+import com.coolonlineshop.catalog.repository.CategoryRepository;
 import com.coolonlineshop.catalog.repository.ProductRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -17,9 +19,11 @@ import java.time.LocalDateTime;
 public class ProductService {
 
     private final ProductRepository productRepository;
+    private final CategoryRepository categoryRepository;
 
-    public ProductService(ProductRepository productRepository) {
+    public ProductService(ProductRepository productRepository, CategoryRepository categoryRepository) {
         this.productRepository = productRepository;
+        this.categoryRepository = categoryRepository;
     }
 
     public ProductResponse getProductById(Long id) {
@@ -42,6 +46,8 @@ public class ProductService {
     }
 
     public ProductResponse createProduct(ProductCreateRequest request) {
+        validateCategoryExists(request.categoryId());
+
         LocalDateTime now = LocalDateTime.now();
         Product product = new Product(
                 request.name(),
@@ -61,6 +67,7 @@ public class ProductService {
     public ProductResponse updateProduct(Long id, ProductUpdateRequest request) {
         Product product = productRepository.findByIdAndDeletedFalse(id)
                 .orElseThrow(() -> new ProductNotFoundException(id));
+        validateCategoryExists(request.categoryId());
 
         product.update(
                 request.name(),
@@ -94,5 +101,11 @@ public class ProductService {
                 product.getCreatedAt(),
                 product.getUpdatedAt()
         );
+    }
+
+    private void validateCategoryExists(Long categoryId) {
+        if (!categoryRepository.existsById(categoryId)) {
+            throw new CategoryNotFoundException(categoryId);
+        }
     }
 }

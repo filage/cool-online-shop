@@ -4,6 +4,7 @@ import com.coolonlineshop.catalog.dto.ProductCreateRequest;
 import com.coolonlineshop.catalog.dto.ProductPageResponse;
 import com.coolonlineshop.catalog.dto.ProductResponse;
 import com.coolonlineshop.catalog.dto.ProductUpdateRequest;
+import com.coolonlineshop.catalog.exception.CategoryNotFoundException;
 import com.coolonlineshop.catalog.exception.GlobalExceptionHandler;
 import com.coolonlineshop.catalog.exception.ProductNotFoundException;
 import com.coolonlineshop.catalog.service.ProductService;
@@ -66,6 +67,26 @@ class ProductControllerTest {
     }
 
     @Test
+    void getProductsReturnsBadRequestWhenPageIsNegative() throws Exception {
+        mockMvc.perform(get("/products?page=-1&size=20"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.title").value("Invalid pagination parameters"))
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.detail").value("Pagination parameters are invalid"))
+                .andExpect(jsonPath("$.errors.page").value("must be greater than or equal to 0"));
+    }
+
+    @Test
+    void getProductsReturnsBadRequestWhenSizeIsInvalid() throws Exception {
+        mockMvc.perform(get("/products?page=0&size=101"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.title").value("Invalid pagination parameters"))
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.detail").value("Pagination parameters are invalid"))
+                .andExpect(jsonPath("$.errors.size").value("must be between 1 and 100"));
+    }
+
+    @Test
     void getProductByIdReturnsProduct() throws Exception {
         ProductResponse product = createProduct(1L, "Wireless Mouse");
 
@@ -109,6 +130,51 @@ class ProductControllerTest {
                 .andExpect(jsonPath("$.description").value("Compact mechanical keyboard"))
                 .andExpect(jsonPath("$.categoryId").value(1))
                 .andExpect(jsonPath("$.availableQuantity").value(15));
+    }
+
+    @Test
+    void createProductReturnsNotFoundWhenCategoryDoesNotExist() throws Exception {
+        when(productService.createProduct(any(ProductCreateRequest.class)))
+                .thenThrow(new CategoryNotFoundException(999L));
+
+        mockMvc.perform(post("/products")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "Mechanical Keyboard",
+                                  "description": "Compact mechanical keyboard",
+                                  "price": 89.99,
+                                  "categoryId": 999,
+                                  "availableQuantity": 15
+                                }
+                                """))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.title").value("Category not found"))
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.detail").value("Category with id 999 not found"));
+    }
+
+    @Test
+    void createProductReturnsBadRequestWhenRequestIsInvalid() throws Exception {
+        mockMvc.perform(post("/products")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "",
+                                  "description": "Compact mechanical keyboard",
+                                  "price": -1,
+                                  "categoryId": null,
+                                  "availableQuantity": -5
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.title").value("Validation failed"))
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.detail").value("Request validation failed"))
+                .andExpect(jsonPath("$.errors.name").value("must not be blank"))
+                .andExpect(jsonPath("$.errors.price").value("must be greater than 0"))
+                .andExpect(jsonPath("$.errors.categoryId").value("must not be null"))
+                .andExpect(jsonPath("$.errors.availableQuantity").value("must be greater than or equal to 0"));
     }
 
     @Test
@@ -162,6 +228,51 @@ class ProductControllerTest {
                 .andExpect(jsonPath("$.title").value("Product not found"))
                 .andExpect(jsonPath("$.status").value(404))
                 .andExpect(jsonPath("$.detail").value("Product with id 999 not found"));
+    }
+
+    @Test
+    void updateProductReturnsNotFoundWhenCategoryDoesNotExist() throws Exception {
+        when(productService.updateProduct(any(Long.class), any(ProductUpdateRequest.class)))
+                .thenThrow(new CategoryNotFoundException(999L));
+
+        mockMvc.perform(put("/products/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "Updated Mouse",
+                                  "description": "Updated wireless mouse",
+                                  "price": 34.99,
+                                  "categoryId": 999,
+                                  "availableQuantity": 40
+                                }
+                                """))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.title").value("Category not found"))
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.detail").value("Category with id 999 not found"));
+    }
+
+    @Test
+    void updateProductReturnsBadRequestWhenRequestIsInvalid() throws Exception {
+        mockMvc.perform(put("/products/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "",
+                                  "description": "Updated wireless mouse",
+                                  "price": 0,
+                                  "categoryId": -1,
+                                  "availableQuantity": -1
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.title").value("Validation failed"))
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.detail").value("Request validation failed"))
+                .andExpect(jsonPath("$.errors.name").value("must not be blank"))
+                .andExpect(jsonPath("$.errors.price").value("must be greater than 0"))
+                .andExpect(jsonPath("$.errors.categoryId").value("must be greater than 0"))
+                .andExpect(jsonPath("$.errors.availableQuantity").value("must be greater than or equal to 0"));
     }
 
     @Test

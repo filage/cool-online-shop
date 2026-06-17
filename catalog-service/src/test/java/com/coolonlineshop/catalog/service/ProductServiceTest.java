@@ -5,7 +5,9 @@ import com.coolonlineshop.catalog.dto.ProductPageResponse;
 import com.coolonlineshop.catalog.dto.ProductResponse;
 import com.coolonlineshop.catalog.dto.ProductUpdateRequest;
 import com.coolonlineshop.catalog.entity.Product;
+import com.coolonlineshop.catalog.exception.CategoryNotFoundException;
 import com.coolonlineshop.catalog.exception.ProductNotFoundException;
+import com.coolonlineshop.catalog.repository.CategoryRepository;
 import com.coolonlineshop.catalog.repository.ProductRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -35,6 +37,9 @@ class ProductServiceTest {
 
     @Mock
     private ProductRepository productRepository;
+
+    @Mock
+    private CategoryRepository categoryRepository;
 
     @InjectMocks
     private ProductService productService;
@@ -90,6 +95,7 @@ class ProductServiceTest {
         ReflectionTestUtils.setField(savedProduct, "description", "Compact mechanical keyboard");
         ReflectionTestUtils.setField(savedProduct, "price", new BigDecimal("89.99"));
         ReflectionTestUtils.setField(savedProduct, "availableQuantity", 15);
+        when(categoryRepository.existsById(1L)).thenReturn(true);
         when(productRepository.save(any(Product.class))).thenReturn(savedProduct);
 
         ProductResponse response = productService.createProduct(request);
@@ -114,6 +120,26 @@ class ProductServiceTest {
     }
 
     @Test
+    void createProductThrowsExceptionWhenCategoryDoesNotExist() {
+        ProductCreateRequest request = new ProductCreateRequest(
+                "Mechanical Keyboard",
+                "Compact mechanical keyboard",
+                new BigDecimal("89.99"),
+                999L,
+                15
+        );
+        when(categoryRepository.existsById(999L)).thenReturn(false);
+
+        CategoryNotFoundException exception = assertThrows(
+                CategoryNotFoundException.class,
+                () -> productService.createProduct(request)
+        );
+
+        assertEquals("Category with id 999 not found", exception.getMessage());
+        verify(productRepository, never()).save(any(Product.class));
+    }
+
+    @Test
     void updateProductUpdatesProductAndReturnsProductResponse() {
         Product product = createProduct(1L, "Wireless Mouse");
         LocalDateTime createdAt = product.getCreatedAt();
@@ -125,6 +151,7 @@ class ProductServiceTest {
                 40
         );
         when(productRepository.findByIdAndDeletedFalse(1L)).thenReturn(Optional.of(product));
+        when(categoryRepository.existsById(1L)).thenReturn(true);
         when(productRepository.save(any(Product.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         ProductResponse response = productService.updateProduct(1L, request);
@@ -148,6 +175,28 @@ class ProductServiceTest {
         assertEquals(1L, response.categoryId());
         assertEquals(40, response.availableQuantity());
         assertEquals(createdAt, response.createdAt());
+    }
+
+    @Test
+    void updateProductThrowsExceptionWhenCategoryDoesNotExist() {
+        Product product = createProduct(1L, "Wireless Mouse");
+        ProductUpdateRequest request = new ProductUpdateRequest(
+                "Updated Mouse",
+                "Updated wireless mouse",
+                new BigDecimal("34.99"),
+                999L,
+                40
+        );
+        when(productRepository.findByIdAndDeletedFalse(1L)).thenReturn(Optional.of(product));
+        when(categoryRepository.existsById(999L)).thenReturn(false);
+
+        CategoryNotFoundException exception = assertThrows(
+                CategoryNotFoundException.class,
+                () -> productService.updateProduct(1L, request)
+        );
+
+        assertEquals("Category with id 999 not found", exception.getMessage());
+        verify(productRepository, never()).save(any(Product.class));
     }
 
     @Test

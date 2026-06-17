@@ -4,6 +4,7 @@ import com.coolonlineshop.catalog.dto.ProductCreateRequest;
 import com.coolonlineshop.catalog.dto.ProductUpdateRequest;
 import com.coolonlineshop.catalog.dto.ProductPageResponse;
 import com.coolonlineshop.catalog.dto.ProductResponse;
+import com.coolonlineshop.catalog.exception.InvalidPageRequestException;
 import com.coolonlineshop.catalog.service.ProductService;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.PageRequest;
@@ -19,9 +20,14 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 @RestController
 @RequestMapping("/products")
 public class ProductController {
+
+    private static final int MAX_PAGE_SIZE = 100;
 
     private final ProductService productService;
 
@@ -34,6 +40,8 @@ public class ProductController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
+        validatePagination(page, size);
+
         return productService.getProducts(PageRequest.of(page, size));
     }
 
@@ -60,5 +68,20 @@ public class ProductController {
     @GetMapping("/{id}")
     public ProductResponse getProductById(@PathVariable Long id) {
         return productService.getProductById(id);
+    }
+
+    private void validatePagination(int page, int size) {
+        Map<String, String> errors = new LinkedHashMap<>();
+
+        if (page < 0) {
+            errors.put("page", "must be greater than or equal to 0");
+        }
+        if (size < 1 || size > MAX_PAGE_SIZE) {
+            errors.put("size", "must be between 1 and " + MAX_PAGE_SIZE);
+        }
+
+        if (!errors.isEmpty()) {
+            throw new InvalidPageRequestException(errors);
+        }
     }
 }

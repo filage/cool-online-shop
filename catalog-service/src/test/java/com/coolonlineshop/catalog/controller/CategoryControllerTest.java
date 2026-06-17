@@ -2,10 +2,12 @@ package com.coolonlineshop.catalog.controller;
 
 import com.coolonlineshop.catalog.dto.CategoryCreateRequest;
 import com.coolonlineshop.catalog.dto.CategoryResponse;
+import com.coolonlineshop.catalog.exception.GlobalExceptionHandler;
 import com.coolonlineshop.catalog.service.CategoryService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -20,6 +22,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(CategoryController.class)
+@Import(GlobalExceptionHandler.class)
 class CategoryControllerTest {
 
     @Autowired
@@ -73,5 +76,22 @@ class CategoryControllerTest {
                 .andExpect(jsonPath("$.id").value(3))
                 .andExpect(jsonPath("$.name").value("Home Office"))
                 .andExpect(jsonPath("$.description").value("Products for remote work and home offices"));
+    }
+
+    @Test
+    void createCategoryReturnsBadRequestWhenRequestIsInvalid() throws Exception {
+        mockMvc.perform(post("/categories")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "",
+                                  "description": "Products for remote work and home offices"
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.title").value("Validation failed"))
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.detail").value("Request validation failed"))
+                .andExpect(jsonPath("$.errors.name").value("must not be blank"));
     }
 }
