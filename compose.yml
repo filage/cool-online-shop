@@ -11,5 +11,11 @@ services:
     volumes:
       - catalog_postgres_data:/var/lib/postgresql/data
 
+  cart-redis:
+    image: redis:7-alpine
+    container_name: cart-redis
+    ports:
+      - "${CART_REDIS_PORT}:6379"
+
 volumes:
   catalog_postgres_data:

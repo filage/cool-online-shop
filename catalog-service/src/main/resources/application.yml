@@ -6,9 +6,9 @@ spring:
     name: catalog-service
 
   datasource:
-    url: jdbc:postgresql://localhost:${CATALOG_DB_PORT:15432}/${CATALOG_DB_NAME:catalog_db}
-    username: ${CATALOG_DB_USER:postgres}
-    password: ${CATALOG_DB_PASSWORD:postgres}
+    url: jdbc:postgresql://localhost:${CATALOG_DB_PORT}/${CATALOG_DB_NAME}
+    username: ${CATALOG_DB_USER}
+    password: ${CATALOG_DB_PASSWORD}
 
   jpa:
     open-in-view: false
