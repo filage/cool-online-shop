@@ -7,6 +7,7 @@ import com.coolonlineshop.cart.dto.UpdateCartItemQuantityRequest;
 import com.coolonlineshop.cart.service.CartService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -44,5 +45,20 @@ public class CartController {
             @Valid @RequestBody UpdateCartItemQuantityRequest request
     ) {
         return cartService.updateItemQuantity(userId, productId, request);
+    }
+
+    @DeleteMapping("/{userId}/items/{productId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteItem(
+            @PathVariable Long userId,
+            @PathVariable Long productId
+    ) {
+        cartService.deleteItem(userId, productId);
+    }
+
+    @DeleteMapping("/{userId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void clearCart(@PathVariable Long userId) {
+        cartService.clearCart(userId);
     }
 }

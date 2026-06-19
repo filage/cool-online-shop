@@ -19,7 +19,9 @@ import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -159,5 +161,30 @@ class CartControllerTest {
                 .andExpect(jsonPath("$.status").value(400))
                 .andExpect(jsonPath("$.detail").value("Request validation failed"))
                 .andExpect(jsonPath("$.errors.quantity").value("must be greater than 0"));
+    }
+
+    @Test
+    void deleteItemReturnsNoContent() throws Exception {
+        mockMvc.perform(delete("/cart/1/items/10"))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void deleteItemReturnsNotFoundWhenCartItemDoesNotExist() throws Exception {
+        doThrow(new CartItemNotFoundException(1L, 999L))
+                .when(cartService)
+                .deleteItem(1L, 999L);
+
+        mockMvc.perform(delete("/cart/1/items/999"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.title").value("Cart item not found"))
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.detail").value("Cart item with product id 999 for user id 1 not found"));
+    }
+
+    @Test
+    void clearCartReturnsNoContent() throws Exception {
+        mockMvc.perform(delete("/cart/1"))
+                .andExpect(status().isNoContent());
     }
 }

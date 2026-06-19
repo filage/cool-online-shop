@@ -79,6 +79,22 @@ public class CartService {
         );
     }
 
+    public void deleteItem(Long userId, Long productId) {
+        String key = cartKey(userId);
+        String field = productId.toString();
+        HashOperations<String, Object, Object> hashOperations = redisTemplate.opsForHash();
+
+        if (!Boolean.TRUE.equals(hashOperations.hasKey(key, field))) {
+            throw new CartItemNotFoundException(userId, productId);
+        }
+
+        hashOperations.delete(key, field);
+    }
+
+    public void clearCart(Long userId) {
+        redisTemplate.delete(cartKey(userId));
+    }
+
     private String cartKey(Long userId) {
         return "cart:" + userId;
     }

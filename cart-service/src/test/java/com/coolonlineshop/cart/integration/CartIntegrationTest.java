@@ -16,6 +16,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.util.Set;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -174,6 +175,42 @@ class CartIntegrationTest {
                 .andExpect(jsonPath("$.status").value(400))
                 .andExpect(jsonPath("$.detail").value("Request validation failed"))
                 .andExpect(jsonPath("$.errors.quantity").value("must be greater than 0"));
+    }
+
+    @Test
+    void deleteItemRemovesCartItem() throws Exception {
+        addItem(1L, 10L, 2);
+
+        mockMvc.perform(delete("/cart/1/items/10"))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/cart/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.userId").value(1))
+                .andExpect(jsonPath("$.items").isEmpty());
+    }
+
+    @Test
+    void deleteItemReturnsNotFoundWhenCartItemDoesNotExist() throws Exception {
+        mockMvc.perform(delete("/cart/1/items/999"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.title").value("Cart item not found"))
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.detail").value("Cart item with product id 999 for user id 1 not found"));
+    }
+
+    @Test
+    void clearCartRemovesAllCartItems() throws Exception {
+        addItem(1L, 10L, 2);
+        addItem(1L, 25L, 1);
+
+        mockMvc.perform(delete("/cart/1"))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/cart/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.userId").value(1))
+                .andExpect(jsonPath("$.items").isEmpty());
     }
 
     private void addItem(Long userId, Long productId, Integer quantity) throws Exception {

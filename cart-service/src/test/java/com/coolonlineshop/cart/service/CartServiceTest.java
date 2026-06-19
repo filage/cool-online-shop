@@ -118,4 +118,36 @@ class CartServiceTest {
         verify(hashOperations).hasKey("cart:1", "999");
         assertEquals("Cart item with product id 999 for user id 1 not found", exception.getMessage());
     }
+
+    @Test
+    void deleteItemDeletesExistingCartItem() {
+        when(redisTemplate.opsForHash()).thenReturn(hashOperations);
+        when(hashOperations.hasKey("cart:1", "10")).thenReturn(true);
+
+        cartService.deleteItem(1L, 10L);
+
+        verify(hashOperations).hasKey("cart:1", "10");
+        verify(hashOperations).delete("cart:1", "10");
+    }
+
+    @Test
+    void deleteItemThrowsExceptionWhenCartItemDoesNotExist() {
+        when(redisTemplate.opsForHash()).thenReturn(hashOperations);
+        when(hashOperations.hasKey("cart:1", "999")).thenReturn(false);
+
+        CartItemNotFoundException exception = assertThrows(
+                CartItemNotFoundException.class,
+                () -> cartService.deleteItem(1L, 999L)
+        );
+
+        verify(hashOperations).hasKey("cart:1", "999");
+        assertEquals("Cart item with product id 999 for user id 1 not found", exception.getMessage());
+    }
+
+    @Test
+    void clearCartDeletesCartKey() {
+        cartService.clearCart(1L);
+
+        verify(redisTemplate).delete("cart:1");
+    }
 }
