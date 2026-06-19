@@ -68,6 +68,8 @@ class CartIntegrationTest {
                 .andExpect(jsonPath("$.userId").value(1))
                 .andExpect(jsonPath("$.productId").value(10))
                 .andExpect(jsonPath("$.quantity").value(2));
+
+        assertCartHasTtl("cart:1");
     }
 
     @Test
@@ -144,6 +146,8 @@ class CartIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items[0].productId").value(10))
                 .andExpect(jsonPath("$.items[0].quantity").value(5));
+
+        assertCartHasTtl("cart:1");
     }
 
     @Test
@@ -224,5 +228,11 @@ class CartIntegrationTest {
                                 }
                                 """.formatted(userId, productId, quantity)))
                 .andExpect(status().isCreated());
+    }
+
+    private void assertCartHasTtl(String key) {
+        Long ttlSeconds = redisTemplate.getExpire(key);
+        org.junit.jupiter.api.Assertions.assertNotNull(ttlSeconds);
+        org.junit.jupiter.api.Assertions.assertTrue(ttlSeconds > 0);
     }
 }

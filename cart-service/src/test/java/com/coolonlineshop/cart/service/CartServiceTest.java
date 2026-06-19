@@ -13,6 +13,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.redis.core.HashOperations;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
+import java.time.Duration;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -41,6 +42,7 @@ class CartServiceTest {
         CartItemResponse response = cartService.addItem(request);
 
         verify(hashOperations).increment("cart:1", "10", 2);
+        verify(redisTemplate).expire("cart:1", Duration.ofDays(7));
         assertEquals(1L, response.userId());
         assertEquals(10L, response.productId());
         assertEquals(2, response.quantity());
@@ -55,6 +57,7 @@ class CartServiceTest {
         CartItemResponse response = cartService.addItem(request);
 
         verify(hashOperations).increment("cart:1", "10", 3);
+        verify(redisTemplate).expire("cart:1", Duration.ofDays(7));
         assertEquals(5, response.quantity());
     }
 
@@ -99,6 +102,7 @@ class CartServiceTest {
 
         verify(hashOperations).hasKey("cart:1", "10");
         verify(hashOperations).put("cart:1", "10", "5");
+        verify(redisTemplate).expire("cart:1", Duration.ofDays(7));
         assertEquals(1L, response.userId());
         assertEquals(10L, response.productId());
         assertEquals(5, response.quantity());

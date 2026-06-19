@@ -9,11 +9,14 @@ import org.springframework.data.redis.core.HashOperations;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.util.Comparator;
 import java.util.Map;
 
 @Service
 public class CartService {
+
+    private static final Duration CART_TTL = Duration.ofDays(7);
 
     private final StringRedisTemplate redisTemplate;
 
@@ -31,6 +34,8 @@ public class CartService {
         if (updatedQuantity == null) {
             throw new IllegalStateException("Redis did not return updated cart item quantity");
         }
+
+        refreshCartTtl(key);
 
         return new CartItemResponse(
                 request.userId(),
@@ -71,6 +76,7 @@ public class CartService {
         }
 
         hashOperations.put(key, field, request.quantity().toString());
+        refreshCartTtl(key);
 
         return new CartItemResponse(
                 userId,
@@ -93,6 +99,10 @@ public class CartService {
 
     public void clearCart(Long userId) {
         redisTemplate.delete(cartKey(userId));
+    }
+
+    private void refreshCartTtl(String key) {
+        redisTemplate.expire(key, CART_TTL);
     }
 
     private String cartKey(Long userId) {
