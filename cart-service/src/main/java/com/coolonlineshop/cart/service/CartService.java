@@ -3,6 +3,8 @@ package com.coolonlineshop.cart.service;
 import com.coolonlineshop.cart.dto.AddCartItemRequest;
 import com.coolonlineshop.cart.dto.CartItemResponse;
 import com.coolonlineshop.cart.dto.CartResponse;
+import com.coolonlineshop.cart.dto.UpdateCartItemQuantityRequest;
+import com.coolonlineshop.cart.exception.CartItemNotFoundException;
 import org.springframework.data.redis.core.HashOperations;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
@@ -52,6 +54,28 @@ public class CartService {
                         ))
                         .sorted(Comparator.comparing(CartItemResponse::productId))
                         .toList()
+        );
+    }
+
+    public CartItemResponse updateItemQuantity(
+            Long userId,
+            Long productId,
+            UpdateCartItemQuantityRequest request
+    ) {
+        String key = cartKey(userId);
+        String field = productId.toString();
+        HashOperations<String, Object, Object> hashOperations = redisTemplate.opsForHash();
+
+        if (!Boolean.TRUE.equals(hashOperations.hasKey(key, field))) {
+            throw new CartItemNotFoundException(userId, productId);
+        }
+
+        hashOperations.put(key, field, request.quantity().toString());
+
+        return new CartItemResponse(
+                userId,
+                productId,
+                request.quantity()
         );
     }
 

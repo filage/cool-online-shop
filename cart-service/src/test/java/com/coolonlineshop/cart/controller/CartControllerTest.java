@@ -3,6 +3,8 @@ package com.coolonlineshop.cart.controller;
 import com.coolonlineshop.cart.dto.AddCartItemRequest;
 import com.coolonlineshop.cart.dto.CartItemResponse;
 import com.coolonlineshop.cart.dto.CartResponse;
+import com.coolonlineshop.cart.dto.UpdateCartItemQuantityRequest;
+import com.coolonlineshop.cart.exception.CartItemNotFoundException;
 import com.coolonlineshop.cart.exception.GlobalExceptionHandler;
 import com.coolonlineshop.cart.service.CartService;
 import org.junit.jupiter.api.Test;
@@ -16,9 +18,11 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -96,5 +100,64 @@ class CartControllerTest {
                 .andExpect(jsonPath("$.items[1].userId").value(1))
                 .andExpect(jsonPath("$.items[1].productId").value(25))
                 .andExpect(jsonPath("$.items[1].quantity").value(1));
+    }
+
+    @Test
+    void updateItemQuantityReturnsUpdatedCartItem() throws Exception {
+        CartItemResponse response = new CartItemResponse(1L, 10L, 5);
+        when(cartService.updateItemQuantity(
+                eq(1L),
+                eq(10L),
+                any(UpdateCartItemQuantityRequest.class)
+        )).thenReturn(response);
+
+        mockMvc.perform(put("/cart/1/items/10")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "quantity": 5
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.userId").value(1))
+                .andExpect(jsonPath("$.productId").value(10))
+                .andExpect(jsonPath("$.quantity").value(5));
+    }
+
+    @Test
+    void updateItemQuantityReturnsNotFoundWhenCartItemDoesNotExist() throws Exception {
+        when(cartService.updateItemQuantity(
+                eq(1L),
+                eq(999L),
+                any(UpdateCartItemQuantityRequest.class)
+        )).thenThrow(new CartItemNotFoundException(1L, 999L));
+
+        mockMvc.perform(put("/cart/1/items/999")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "quantity": 5
+                                }
+                                """))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.title").value("Cart item not found"))
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.detail").value("Cart item with product id 999 for user id 1 not found"));
+    }
+
+    @Test
+    void updateItemQuantityReturnsBadRequestWhenRequestIsInvalid() throws Exception {
+        mockMvc.perform(put("/cart/1/items/10")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "quantity": 0
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.title").value("Validation failed"))
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.detail").value("Request validation failed"))
+                .andExpect(jsonPath("$.errors.quantity").value("must be greater than 0"));
     }
 }

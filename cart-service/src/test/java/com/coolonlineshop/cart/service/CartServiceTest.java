@@ -3,6 +3,8 @@ package com.coolonlineshop.cart.service;
 import com.coolonlineshop.cart.dto.AddCartItemRequest;
 import com.coolonlineshop.cart.dto.CartItemResponse;
 import com.coolonlineshop.cart.dto.CartResponse;
+import com.coolonlineshop.cart.dto.UpdateCartItemQuantityRequest;
+import com.coolonlineshop.cart.exception.CartItemNotFoundException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -14,6 +16,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -84,5 +87,35 @@ class CartServiceTest {
         verify(hashOperations).entries("cart:999");
         assertEquals(999L, response.userId());
         assertEquals(0, response.items().size());
+    }
+
+    @Test
+    void updateItemQuantityUpdatesExistingCartItemAndReturnsResponse() {
+        UpdateCartItemQuantityRequest request = new UpdateCartItemQuantityRequest(5);
+        when(redisTemplate.opsForHash()).thenReturn(hashOperations);
+        when(hashOperations.hasKey("cart:1", "10")).thenReturn(true);
+
+        CartItemResponse response = cartService.updateItemQuantity(1L, 10L, request);
+
+        verify(hashOperations).hasKey("cart:1", "10");
+        verify(hashOperations).put("cart:1", "10", "5");
+        assertEquals(1L, response.userId());
+        assertEquals(10L, response.productId());
+        assertEquals(5, response.quantity());
+    }
+
+    @Test
+    void updateItemQuantityThrowsExceptionWhenCartItemDoesNotExist() {
+        UpdateCartItemQuantityRequest request = new UpdateCartItemQuantityRequest(5);
+        when(redisTemplate.opsForHash()).thenReturn(hashOperations);
+        when(hashOperations.hasKey("cart:1", "999")).thenReturn(false);
+
+        CartItemNotFoundException exception = assertThrows(
+                CartItemNotFoundException.class,
+                () -> cartService.updateItemQuantity(1L, 999L, request)
+        );
+
+        verify(hashOperations).hasKey("cart:1", "999");
+        assertEquals("Cart item with product id 999 for user id 1 not found", exception.getMessage());
     }
 }
