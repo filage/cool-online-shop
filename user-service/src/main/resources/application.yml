@@ -5,13 +5,16 @@ spring:
   application:
     name: user-service
   datasource:
-    url: jdbc:postgresql://localhost:5432/user_db
-    username: postgres
-    password: postgres
+    url: jdbc:postgresql://localhost:${USER_DB_PORT}/${USER_DB_NAME}
+    username: ${USER_DB_USER}
+    password: ${USER_DB_PASSWORD}
   jpa:
     open-in-view: false
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
+
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.yml
 
 logging:
   level:
