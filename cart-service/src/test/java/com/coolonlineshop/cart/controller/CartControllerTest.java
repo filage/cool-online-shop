@@ -6,6 +6,7 @@ import com.coolonlineshop.cart.dto.CartResponse;
 import com.coolonlineshop.cart.dto.UpdateCartItemQuantityRequest;
 import com.coolonlineshop.cart.exception.CartItemNotFoundException;
 import com.coolonlineshop.cart.exception.GlobalExceptionHandler;
+import com.coolonlineshop.cart.exception.ProductNotFoundException;
 import com.coolonlineshop.cart.service.CartService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -80,6 +81,26 @@ class CartControllerTest {
                 .andExpect(jsonPath("$.errors.userId").value("must be greater than 0"))
                 .andExpect(jsonPath("$.errors.productId").value("must be greater than 0"))
                 .andExpect(jsonPath("$.errors.quantity").value("must be greater than 0"));
+    }
+
+    @Test
+    void addItemReturnsNotFoundWhenProductDoesNotExist() throws Exception {
+        when(cartService.addItem(any(AddCartItemRequest.class)))
+                .thenThrow(new ProductNotFoundException(999L));
+
+        mockMvc.perform(post("/cart/items")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "userId": 1,
+                                  "productId": 999,
+                                  "quantity": 2
+                                }
+                                """))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.title").value("Product not found"))
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.detail").value("Product with id 999 not found"));
     }
 
     @Test

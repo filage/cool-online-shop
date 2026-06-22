@@ -1,5 +1,6 @@
 package com.coolonlineshop.cart.service;
 
+import com.coolonlineshop.cart.client.CatalogClient;
 import com.coolonlineshop.cart.dto.AddCartItemRequest;
 import com.coolonlineshop.cart.dto.CartItemResponse;
 import com.coolonlineshop.cart.dto.CartResponse;
@@ -19,12 +20,16 @@ public class CartService {
     private static final Duration CART_TTL = Duration.ofDays(7);
 
     private final StringRedisTemplate redisTemplate;
+    private final CatalogClient catalogClient;
 
-    public CartService(StringRedisTemplate redisTemplate) {
+    public CartService(StringRedisTemplate redisTemplate, CatalogClient catalogClient) {
         this.redisTemplate = redisTemplate;
+        this.catalogClient = catalogClient;
     }
 
     public CartItemResponse addItem(AddCartItemRequest request) {
+        catalogClient.validateProductExists(request.productId());
+
         String key = cartKey(request.userId());
         String field = request.productId().toString();
 

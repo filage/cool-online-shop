@@ -1,5 +1,7 @@
 package com.coolonlineshop.cart.integration;
 
+import com.coolonlineshop.cart.client.CatalogClient;
+import com.coolonlineshop.cart.exception.ProductNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -9,6 +11,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -16,6 +19,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.util.Set;
 
+import static org.mockito.Mockito.doThrow;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -39,10 +43,14 @@ class CartIntegrationTest {
     @Autowired
     private StringRedisTemplate redisTemplate;
 
+    @MockitoBean
+    private CatalogClient catalogClient;
+
     @DynamicPropertySource
     static void configureRedis(DynamicPropertyRegistry registry) {
         registry.add("spring.data.redis.host", redis::getHost);
         registry.add("spring.data.redis.port", () -> redis.getMappedPort(6379));
+        registry.add("catalog-service.base-url", () -> "http://catalog-service.test");
     }
 
     @BeforeEach
@@ -108,6 +116,27 @@ class CartIntegrationTest {
                 .andExpect(jsonPath("$.detail").value("Request validation failed"))
                 .andExpect(jsonPath("$.errors.userId").value("must not be null"))
                 .andExpect(jsonPath("$.errors.quantity").value("must be greater than 0"));
+    }
+
+    @Test
+    void addItemReturnsNotFoundWhenProductDoesNotExist() throws Exception {
+        doThrow(new ProductNotFoundException(999L))
+                .when(catalogClient)
+                .validateProductExists(999L);
+
+        mockMvc.perform(post("/cart/items")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "userId": 1,
+                                  "productId": 999,
+                                  "quantity": 2
+                                }
+                                """))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.title").value("Product not found"))
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.detail").value("Product with id 999 not found"));
     }
 
     @Test

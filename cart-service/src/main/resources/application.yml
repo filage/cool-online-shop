@@ -1,5 +1,5 @@
 server:
-  port: 8084
+  port: ${CART_SERVICE_PORT}
 
 spring:
   application:
@@ -8,6 +8,9 @@ spring:
     redis:
       host: ${CART_REDIS_HOST}
       port: ${CART_REDIS_PORT}
+
+catalog-service:
+  base-url: ${CATALOG_SERVICE_BASE_URL}
 
 logging:
   level:

@@ -1,10 +1,12 @@
 package com.coolonlineshop.cart.service;
 
+import com.coolonlineshop.cart.client.CatalogClient;
 import com.coolonlineshop.cart.dto.AddCartItemRequest;
 import com.coolonlineshop.cart.dto.CartItemResponse;
 import com.coolonlineshop.cart.dto.CartResponse;
 import com.coolonlineshop.cart.dto.UpdateCartItemQuantityRequest;
 import com.coolonlineshop.cart.exception.CartItemNotFoundException;
+import com.coolonlineshop.cart.exception.ProductNotFoundException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -18,6 +20,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -30,6 +33,9 @@ class CartServiceTest {
     @Mock
     private HashOperations<String, Object, Object> hashOperations;
 
+    @Mock
+    private CatalogClient catalogClient;
+
     @InjectMocks
     private CartService cartService;
 
@@ -41,6 +47,7 @@ class CartServiceTest {
 
         CartItemResponse response = cartService.addItem(request);
 
+        verify(catalogClient).validateProductExists(10L);
         verify(hashOperations).increment("cart:1", "10", 2);
         verify(redisTemplate).expire("cart:1", Duration.ofDays(7));
         assertEquals(1L, response.userId());
@@ -56,9 +63,26 @@ class CartServiceTest {
 
         CartItemResponse response = cartService.addItem(request);
 
+        verify(catalogClient).validateProductExists(10L);
         verify(hashOperations).increment("cart:1", "10", 3);
         verify(redisTemplate).expire("cart:1", Duration.ofDays(7));
         assertEquals(5, response.quantity());
+    }
+
+    @Test
+    void addItemThrowsExceptionWhenProductDoesNotExist() {
+        AddCartItemRequest request = new AddCartItemRequest(1L, 999L, 2);
+        doThrow(new ProductNotFoundException(999L))
+                .when(catalogClient)
+                .validateProductExists(999L);
+
+        ProductNotFoundException exception = assertThrows(
+                ProductNotFoundException.class,
+                () -> cartService.addItem(request)
+        );
+
+        verify(catalogClient).validateProductExists(999L);
+        assertEquals("Product with id 999 not found", exception.getMessage());
     }
 
     @Test
