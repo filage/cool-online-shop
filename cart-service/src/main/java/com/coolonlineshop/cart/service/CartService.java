@@ -28,12 +28,14 @@ public class CartService {
     }
 
     public CartItemResponse addItem(AddCartItemRequest request) {
-        catalogClient.validateProductExists(request.productId());
-
         String key = cartKey(request.userId());
         String field = request.productId().toString();
 
         HashOperations<String, Object, Object> hashOperations = redisTemplate.opsForHash();
+        Integer currentQuantity = getCurrentQuantity(hashOperations, key, field);
+        Integer requestedQuantity = currentQuantity + request.quantity();
+        catalogClient.validateProductAvailable(request.productId(), requestedQuantity);
+
         Long updatedQuantity = hashOperations.increment(key, field, request.quantity());
 
         if (updatedQuantity == null) {
@@ -80,6 +82,7 @@ public class CartService {
             throw new CartItemNotFoundException(userId, productId);
         }
 
+        catalogClient.validateProductAvailable(productId, request.quantity());
         hashOperations.put(key, field, request.quantity().toString());
         refreshCartTtl(key);
 
@@ -108,6 +111,19 @@ public class CartService {
 
     private void refreshCartTtl(String key) {
         redisTemplate.expire(key, CART_TTL);
+    }
+
+    private Integer getCurrentQuantity(
+            HashOperations<String, Object, Object> hashOperations,
+            String key,
+            String field
+    ) {
+        Object value = hashOperations.get(key, field);
+        if (value == null) {
+            return 0;
+        }
+
+        return Integer.valueOf(value.toString());
     }
 
     private String cartKey(Long userId) {
