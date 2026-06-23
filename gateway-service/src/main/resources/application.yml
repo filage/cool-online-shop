@@ -36,9 +36,9 @@ spring:
             - id: order-service
               uri: ${GATEWAY_ORDER_SERVICE_URL}
               predicates:
-                - Path=/api/orders/**
+                - Path=/api/orders,/api/orders/**
               filters:
-                - RewritePath=/api/orders/?(?<segment>.*), /orders/$\{segment}
+                - RewritePath=/api/orders(?<segment>/?.*), /orders$\{segment}
             - id: payment-service
               uri: ${GATEWAY_PAYMENT_SERVICE_URL}
               predicates:

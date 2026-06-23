@@ -16,6 +16,16 @@ spring:
   liquibase:
     change-log: classpath:db/changelog/db.changelog-master.yml
 
+cart-service:
+  base-url: ${CART_SERVICE_BASE_URL}
+  connect-timeout: ${CART_SERVICE_CONNECT_TIMEOUT}
+  read-timeout: ${CART_SERVICE_READ_TIMEOUT}
+
+catalog-service:
+  base-url: ${CATALOG_SERVICE_BASE_URL}
+  connect-timeout: ${CATALOG_SERVICE_CONNECT_TIMEOUT}
+  read-timeout: ${CATALOG_SERVICE_READ_TIMEOUT}
+
 logging:
   level:
     com.coolonlineshop.order: DEBUG
