@@ -22,5 +22,5 @@ logging:
 
 auth:
   jwt:
-    secret: ${AUTH_JWT_SECRET:dev-only-secret-key-for-auth-service-please-change}
+    secret: ${AUTH_JWT_SECRET}
     expiration-minutes: ${AUTH_JWT_EXPIRATION_MINUTES:60}
