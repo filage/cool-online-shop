@@ -39,7 +39,6 @@ class OrderServiceTest {
     @Test
     void createOrderCalculatesTotalAmountAndReturnsResponse() {
         OrderCreateRequest request = new OrderCreateRequest(
-                1L,
                 List.of(
                         new OrderItemCreateRequest(10L, "Wireless Mouse", new BigDecimal("29.99"), 2),
                         new OrderItemCreateRequest(25L, "Spring Boot Guide", new BigDecimal("39.99"), 1)
@@ -53,7 +52,7 @@ class OrderServiceTest {
             return order;
         });
 
-        OrderResponse response = orderService.createOrder(request);
+        OrderResponse response = orderService.createOrder(1L, request);
 
         verify(orderRepository).save(any(Order.class));
         assertEquals(1L, response.id());
@@ -76,7 +75,7 @@ class OrderServiceTest {
         Order order = createOrder(1L, 1L);
         when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
 
-        OrderResponse response = orderService.getOrderById(1L);
+        OrderResponse response = orderService.getOrderById(1L, 1L);
 
         verify(orderRepository).findById(1L);
         assertEquals(1L, response.id());
@@ -91,11 +90,25 @@ class OrderServiceTest {
 
         OrderNotFoundException exception = assertThrows(
                 OrderNotFoundException.class,
-                () -> orderService.getOrderById(999L)
+                () -> orderService.getOrderById(999L, 1L)
         );
 
         verify(orderRepository).findById(999L);
         assertEquals("Order with id 999 not found", exception.getMessage());
+    }
+
+    @Test
+    void getOrderByIdThrowsExceptionWhenOrderBelongsToAnotherUser() {
+        Order order = createOrder(1L, 2L);
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+
+        OrderNotFoundException exception = assertThrows(
+                OrderNotFoundException.class,
+                () -> orderService.getOrderById(1L, 1L)
+        );
+
+        verify(orderRepository).findById(1L);
+        assertEquals("Order with id 1 not found", exception.getMessage());
     }
 
     @Test
