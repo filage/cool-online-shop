@@ -201,6 +201,7 @@ class CartServiceTest {
 
         verify(hashOperations).hasKey("cart:1", "10");
         verify(hashOperations).delete("cart:1", "10");
+        verify(redisTemplate).expire("cart:1", Duration.ofDays(7));
     }
 
     @Test

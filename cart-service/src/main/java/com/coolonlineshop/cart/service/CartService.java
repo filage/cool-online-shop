@@ -103,6 +103,7 @@ public class CartService {
         }
 
         hashOperations.delete(key, field);
+        refreshCartTtl(key);
     }
 
     public void clearCart(Long userId) {

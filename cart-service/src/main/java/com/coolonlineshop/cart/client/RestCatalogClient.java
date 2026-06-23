@@ -4,6 +4,7 @@ import com.coolonlineshop.cart.exception.CatalogServiceUnavailableException;
 import com.coolonlineshop.cart.exception.ProductNotFoundException;
 import com.coolonlineshop.cart.exception.ProductQuantityNotAvailableException;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
@@ -18,8 +19,13 @@ public class RestCatalogClient implements CatalogClient {
             RestClient.Builder restClientBuilder,
             CatalogServiceProperties catalogServiceProperties
     ) {
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(catalogServiceProperties.connectTimeout());
+        requestFactory.setReadTimeout(catalogServiceProperties.readTimeout());
+
         this.restClient = restClientBuilder
                 .baseUrl(catalogServiceProperties.baseUrl())
+                .requestFactory(requestFactory)
                 .build();
     }
 
@@ -32,7 +38,7 @@ public class RestCatalogClient implements CatalogClient {
                     .body(CatalogProductResponse.class);
 
             if (product == null) {
-                throw new IllegalStateException("Catalog service returned empty product response");
+                throw new CatalogServiceUnavailableException();
             }
             if (requestedQuantity > product.availableQuantity()) {
                 throw new ProductQuantityNotAvailableException(
