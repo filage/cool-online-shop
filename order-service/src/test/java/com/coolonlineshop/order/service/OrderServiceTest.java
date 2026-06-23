@@ -1,15 +1,21 @@
 package com.coolonlineshop.order.service;
 
-import com.coolonlineshop.order.dto.OrderCreateRequest;
-import com.coolonlineshop.order.dto.OrderItemCreateRequest;
+import com.coolonlineshop.order.client.CartClient;
+import com.coolonlineshop.order.client.CartItemResponse;
+import com.coolonlineshop.order.client.CartResponse;
+import com.coolonlineshop.order.client.CatalogClient;
+import com.coolonlineshop.order.client.CatalogProductResponse;
 import com.coolonlineshop.order.dto.OrderResponse;
 import com.coolonlineshop.order.entity.Order;
 import com.coolonlineshop.order.entity.OrderItem;
 import com.coolonlineshop.order.entity.OrderStatus;
+import com.coolonlineshop.order.exception.EmptyCartException;
 import com.coolonlineshop.order.exception.OrderNotFoundException;
+import com.coolonlineshop.order.exception.ProductQuantityNotAvailableException;
 import com.coolonlineshop.order.repository.OrderRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -24,6 +30,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -33,17 +41,36 @@ class OrderServiceTest {
     @Mock
     private OrderRepository orderRepository;
 
+    @Mock
+    private CartClient cartClient;
+
+    @Mock
+    private CatalogClient catalogClient;
+
     @InjectMocks
     private OrderService orderService;
 
     @Test
-    void createOrderCalculatesTotalAmountAndReturnsResponse() {
-        OrderCreateRequest request = new OrderCreateRequest(
+    void checkoutCreatesOrderFromCartAndCatalogThenClearsCart() {
+        when(cartClient.getCart(1L)).thenReturn(new CartResponse(
+                1L,
                 List.of(
-                        new OrderItemCreateRequest(10L, "Wireless Mouse", new BigDecimal("29.99"), 2),
-                        new OrderItemCreateRequest(25L, "Spring Boot Guide", new BigDecimal("39.99"), 1)
+                        new CartItemResponse(1L, 10L, 2),
+                        new CartItemResponse(1L, 25L, 1)
                 )
-        );
+        ));
+        when(catalogClient.getProduct(10L)).thenReturn(new CatalogProductResponse(
+                10L,
+                "Wireless Mouse",
+                new BigDecimal("29.99"),
+                10
+        ));
+        when(catalogClient.getProduct(25L)).thenReturn(new CatalogProductResponse(
+                25L,
+                "Spring Boot Guide",
+                new BigDecimal("39.99"),
+                5
+        ));
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> {
             Order order = invocation.getArgument(0);
             ReflectionTestUtils.setField(order, "id", 1L);
@@ -52,9 +79,12 @@ class OrderServiceTest {
             return order;
         });
 
-        OrderResponse response = orderService.createOrder(1L, request);
+        OrderResponse response = orderService.checkout(1L);
 
-        verify(orderRepository).save(any(Order.class));
+        InOrder order = inOrder(cartClient, orderRepository);
+        order.verify(cartClient).getCart(1L);
+        order.verify(orderRepository).save(any(Order.class));
+        order.verify(cartClient).clearCart(1L);
         assertEquals(1L, response.id());
         assertEquals(1L, response.userId());
         assertEquals(OrderStatus.CREATED, response.status());
@@ -62,12 +92,46 @@ class OrderServiceTest {
         assertNotNull(response.createdAt());
         assertNotNull(response.updatedAt());
         assertEquals(2, response.items().size());
-        assertEquals(10L, response.items().get(0).productId());
-        assertEquals("Wireless Mouse", response.items().get(0).productName());
-        assertEquals(2, response.items().get(0).quantity());
+        assertEquals(10L, response.items().getFirst().productId());
+        assertEquals("Wireless Mouse", response.items().getFirst().productName());
+        assertEquals(0, new BigDecimal("29.99").compareTo(response.items().getFirst().productPrice()));
+        assertEquals(2, response.items().getFirst().quantity());
         assertEquals(25L, response.items().get(1).productId());
         assertEquals("Spring Boot Guide", response.items().get(1).productName());
         assertEquals(1, response.items().get(1).quantity());
+    }
+
+    @Test
+    void checkoutThrowsExceptionWhenCartIsEmpty() {
+        when(cartClient.getCart(1L)).thenReturn(new CartResponse(1L, List.of()));
+
+        assertThrows(EmptyCartException.class, () -> orderService.checkout(1L));
+
+        verify(orderRepository, never()).save(any(Order.class));
+        verify(cartClient, never()).clearCart(1L);
+    }
+
+    @Test
+    void checkoutThrowsExceptionWhenProductQuantityIsNotAvailable() {
+        when(cartClient.getCart(1L)).thenReturn(new CartResponse(
+                1L,
+                List.of(new CartItemResponse(1L, 10L, 3))
+        ));
+        when(catalogClient.getProduct(10L)).thenReturn(new CatalogProductResponse(
+                10L,
+                "Wireless Mouse",
+                new BigDecimal("29.99"),
+                2
+        ));
+
+        ProductQuantityNotAvailableException exception = assertThrows(
+                ProductQuantityNotAvailableException.class,
+                () -> orderService.checkout(1L)
+        );
+
+        assertEquals("Product with id 10 has only 2 items available, requested 3", exception.getMessage());
+        verify(orderRepository, never()).save(any(Order.class));
+        verify(cartClient, never()).clearCart(1L);
     }
 
     @Test
@@ -122,7 +186,7 @@ class OrderServiceTest {
 
         verify(orderRepository).findByUserIdOrderByCreatedAtDesc(1L);
         assertEquals(2, responses.size());
-        assertEquals(2L, responses.get(0).id());
+        assertEquals(2L, responses.getFirst().id());
         assertEquals(1L, responses.get(1).id());
     }
 

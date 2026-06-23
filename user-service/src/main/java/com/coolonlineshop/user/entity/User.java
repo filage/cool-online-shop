@@ -16,6 +16,9 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "auth_user_id", nullable = false, unique = true)
+    private Long authUserId;
+
     @Column(nullable = false, unique = true)
     private String email;
 
@@ -37,6 +40,7 @@ public class User {
     }
 
     public User(
+            Long authUserId,
             String email,
             String firstName,
             String lastName,
@@ -44,6 +48,7 @@ public class User {
             LocalDateTime createdAt,
             LocalDateTime updatedAt
     ) {
+        this.authUserId = authUserId;
         this.email = email;
         this.firstName = firstName;
         this.lastName = lastName;
@@ -66,6 +71,10 @@ public class User {
     
     public Long getId() {
         return id;
+    }
+
+    public Long getAuthUserId() {
+        return authUserId;
     }
 
     public String getEmail() {

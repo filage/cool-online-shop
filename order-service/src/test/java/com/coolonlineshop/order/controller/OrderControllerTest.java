@@ -1,9 +1,10 @@
 package com.coolonlineshop.order.controller;
 
-import com.coolonlineshop.order.dto.OrderCreateRequest;
 import com.coolonlineshop.order.dto.OrderItemResponse;
 import com.coolonlineshop.order.dto.OrderResponse;
 import com.coolonlineshop.order.entity.OrderStatus;
+import com.coolonlineshop.order.exception.CartServiceUnavailableException;
+import com.coolonlineshop.order.exception.EmptyCartException;
 import com.coolonlineshop.order.exception.GlobalExceptionHandler;
 import com.coolonlineshop.order.exception.OrderNotFoundException;
 import com.coolonlineshop.order.service.OrderService;
@@ -11,7 +12,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -19,8 +19,6 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -38,25 +36,12 @@ class OrderControllerTest {
     private OrderService orderService;
 
     @Test
-    void createOrderReturnsCreatedOrder() throws Exception {
+    void checkoutReturnsCreatedOrder() throws Exception {
         OrderResponse response = createResponse(1L, 1L);
-        when(orderService.createOrder(eq(1L), any(OrderCreateRequest.class))).thenReturn(response);
+        when(orderService.checkout(1L)).thenReturn(response);
 
-        mockMvc.perform(post("/orders")
-                        .header("X-User-Id", "1")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "items": [
-                                    {
-                                      "productId": 10,
-                                      "productName": "Wireless Mouse",
-                                      "productPrice": 29.99,
-                                      "quantity": 2
-                                    }
-                                  ]
-                                }
-                                """))
+        mockMvc.perform(post("/orders/checkout")
+                        .header("X-User-Id", "1"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").value(1))
                 .andExpect(jsonPath("$.userId").value(1))
@@ -68,42 +53,36 @@ class OrderControllerTest {
     }
 
     @Test
-    void createOrderReturnsBadRequestWhenRequestIsInvalid() throws Exception {
-        mockMvc.perform(post("/orders")
-                        .header("X-User-Id", "1")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "items": []
-                                }
-                                """))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.title").value("Validation failed"))
-                .andExpect(jsonPath("$.status").value(400))
-                .andExpect(jsonPath("$.detail").value("Request validation failed"))
-                .andExpect(jsonPath("$.errors.items").exists());
-    }
-
-    @Test
-    void createOrderReturnsBadRequestWhenUserHeaderIsMissing() throws Exception {
-        mockMvc.perform(post("/orders")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "items": [
-                                    {
-                                      "productId": 10,
-                                      "productName": "Wireless Mouse",
-                                      "productPrice": 29.99,
-                                      "quantity": 2
-                                    }
-                                  ]
-                                }
-                                """))
+    void checkoutReturnsBadRequestWhenUserHeaderIsMissing() throws Exception {
+        mockMvc.perform(post("/orders/checkout"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.title").value("Missing request header"))
                 .andExpect(jsonPath("$.status").value(400))
                 .andExpect(jsonPath("$.detail").value("Required request header is missing: X-User-Id"));
+    }
+
+    @Test
+    void checkoutReturnsConflictWhenCartIsEmpty() throws Exception {
+        when(orderService.checkout(1L)).thenThrow(new EmptyCartException());
+
+        mockMvc.perform(post("/orders/checkout")
+                        .header("X-User-Id", "1"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.title").value("Cart is empty"))
+                .andExpect(jsonPath("$.status").value(409))
+                .andExpect(jsonPath("$.detail").value("Cart is empty"));
+    }
+
+    @Test
+    void checkoutReturnsServiceUnavailableWhenCartServiceIsUnavailable() throws Exception {
+        when(orderService.checkout(1L)).thenThrow(new CartServiceUnavailableException());
+
+        mockMvc.perform(post("/orders/checkout")
+                        .header("X-User-Id", "1"))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.title").value("Cart service unavailable"))
+                .andExpect(jsonPath("$.status").value(503))
+                .andExpect(jsonPath("$.detail").value("Cart service is unavailable"));
     }
 
     @Test
@@ -138,7 +117,7 @@ class OrderControllerTest {
                 createResponse(1L, 1L)
         ));
 
-        mockMvc.perform(get("/orders/by-user")
+        mockMvc.perform(get("/orders")
                         .header("X-User-Id", "1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(2))

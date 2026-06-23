@@ -14,6 +14,17 @@ import java.util.stream.Collectors;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(CatalogWriteForbiddenException.class)
+    public ResponseEntity<ProblemDetail> handleCatalogWriteForbidden(CatalogWriteForbiddenException exception) {
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.FORBIDDEN,
+                exception.getMessage()
+        );
+        problemDetail.setTitle("Catalog write forbidden");
+
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(problemDetail);
+    }
+
     @ExceptionHandler(ProductNotFoundException.class)
     public ResponseEntity<ProblemDetail> handleProductNotFound(ProductNotFoundException exception) {
         ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(

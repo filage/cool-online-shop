@@ -5,6 +5,7 @@ import com.coolonlineshop.catalog.dto.ProductUpdateRequest;
 import com.coolonlineshop.catalog.dto.ProductPageResponse;
 import com.coolonlineshop.catalog.dto.ProductResponse;
 import com.coolonlineshop.catalog.exception.InvalidPageRequestException;
+import com.coolonlineshop.catalog.security.CatalogWriteAuthorizer;
 import com.coolonlineshop.catalog.service.ProductService;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.PageRequest;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -47,21 +49,34 @@ public class ProductController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public ProductResponse createProduct(@Valid @RequestBody ProductCreateRequest request) {
+    public ProductResponse createProduct(
+            @RequestHeader(value = "X-User-Role", required = false) String userRole,
+            @Valid @RequestBody ProductCreateRequest request
+    ) {
+        CatalogWriteAuthorizer.requireAdmin(userRole);
+
         return productService.createProduct(request);
     }
 
     @PutMapping("/{id}")
     public ProductResponse updateProduct(
+            @RequestHeader(value = "X-User-Role", required = false) String userRole,
             @PathVariable Long id,
             @Valid @RequestBody ProductUpdateRequest request
     ) {
+        CatalogWriteAuthorizer.requireAdmin(userRole);
+
         return productService.updateProduct(id, request);
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteProduct(@PathVariable Long id) {
+    public void deleteProduct(
+            @RequestHeader(value = "X-User-Role", required = false) String userRole,
+            @PathVariable Long id
+    ) {
+        CatalogWriteAuthorizer.requireAdmin(userRole);
+
         productService.deleteProduct(id);
     }
 

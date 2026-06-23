@@ -259,34 +259,22 @@ Gateway принимает внешний путь:
 
 ## Что изменилось в order-service
 
-`OrderCreateRequest` больше не содержит `userId`.
+Создание заказа переведено на checkout:
 
-Было:
-
-```java
-public record OrderCreateRequest(
-        Long userId,
-        List<OrderItemCreateRequest> items
-) {
-}
+```http
+POST /orders/checkout
 ```
 
-Стало:
-
-```java
-public record OrderCreateRequest(
-        List<OrderItemCreateRequest> items
-) {
-}
-```
-
-Теперь controller получает пользователя так:
+Тело запроса не нужно. Controller получает пользователя так:
 
 ```java
 @RequestHeader("X-User-Id") Long userId
 ```
 
 Это значит: `order-service` берет пользователя из header, который поставил gateway.
+
+Состав заказа берется из `cart-service`, а `productName` и `productPrice` берутся из
+`catalog-service`, а не из клиентского request body.
 
 `GET /orders/{id}` теперь проверяет владельца заказа.
 

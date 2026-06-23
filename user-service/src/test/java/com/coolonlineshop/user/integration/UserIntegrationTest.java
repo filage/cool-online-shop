@@ -56,12 +56,14 @@ class UserIntegrationTest {
     }
 
     @Test
-    void createUserStoresUserInDatabase() throws Exception {
-        mockMvc.perform(post("/users")
+    void createCurrentUserStoresUserInDatabaseWithTrustedAuthData() throws Exception {
+        mockMvc.perform(post("/users/me")
+                        .header("X-User-Id", "10")
+                        .header("X-User-Email", "ivan.user@example.com")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "email": "ivan.user@example.com",
+                                  "email": "attacker@example.com",
                                   "firstName": "Ivan",
                                   "lastName": "User",
                                   "phone": "+375291112233"
@@ -69,51 +71,57 @@ class UserIntegrationTest {
                                 """))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").isNumber())
+                .andExpect(jsonPath("$.authUserId").value(10))
                 .andExpect(jsonPath("$.email").value("ivan.user@example.com"))
                 .andExpect(jsonPath("$.firstName").value("Ivan"))
                 .andExpect(jsonPath("$.lastName").value("User"))
                 .andExpect(jsonPath("$.phone").value("+375291112233"));
 
+        assertTrue(userRepository.findByAuthUserId(10L).isPresent());
         assertTrue(userRepository.findByEmail("ivan.user@example.com").isPresent());
+        assertTrue(userRepository.findByEmail("attacker@example.com").isEmpty());
     }
 
     @Test
-    void createUserReturnsConflictWhenEmailAlreadyExists() throws Exception {
-        createUser("ivan.user@example.com", "Ivan", "User", "+375291112233");
+    void createCurrentUserReturnsConflictWhenProfileAlreadyExists() throws Exception {
+        createCurrentUser(10L, "ivan.user@example.com", "Ivan", "User", "+375291112233");
 
-        mockMvc.perform(post("/users")
+        mockMvc.perform(post("/users/me")
+                        .header("X-User-Id", "10")
+                        .header("X-User-Email", "ivan.user@example.com")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "email": "ivan.user@example.com",
                                   "firstName": "Petr",
                                   "lastName": "Petrov",
                                   "phone": "+375292223344"
                                 }
                                 """))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.title").value("Email already exists"))
+                .andExpect(jsonPath("$.title").value("User profile already exists"))
                 .andExpect(jsonPath("$.status").value(409))
-                .andExpect(jsonPath("$.detail").value("User with email ivan.user@example.com already exists"));
+                .andExpect(jsonPath("$.detail").value("Profile for auth user 10 already exists"));
     }
 
     @Test
-    void getUserByEmailReturnsUserFromDatabase() throws Exception {
-        createUser("ivan.user@example.com", "Ivan", "User", "+375291112233");
+    void getCurrentUserReturnsUserFromDatabase() throws Exception {
+        createCurrentUser(10L, "ivan.user@example.com", "Ivan", "User", "+375291112233");
 
-        mockMvc.perform(get("/users/by-email")
-                        .param("email", "ivan.user@example.com"))
+        mockMvc.perform(get("/users/me")
+                        .header("X-User-Id", "10"))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.authUserId").value(10))
                 .andExpect(jsonPath("$.email").value("ivan.user@example.com"))
                 .andExpect(jsonPath("$.firstName").value("Ivan"))
                 .andExpect(jsonPath("$.lastName").value("User"));
     }
 
     @Test
-    void updateUserChangesUserInDatabase() throws Exception {
-        Long userId = createUser("ivan.user@example.com", "Ivan", "User", "+375291112233");
+    void updateCurrentUserChangesUserInDatabase() throws Exception {
+        createCurrentUser(10L, "ivan.user@example.com", "Ivan", "User", "+375291112233");
 
-        mockMvc.perform(put("/users/%d".formatted(userId))
+        mockMvc.perform(put("/users/me")
+                        .header("X-User-Id", "10")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -123,13 +131,14 @@ class UserIntegrationTest {
                                 }
                                 """))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(userId))
+                .andExpect(jsonPath("$.authUserId").value(10))
                 .andExpect(jsonPath("$.email").value("ivan.user@example.com"))
                 .andExpect(jsonPath("$.firstName").value("Petr"))
                 .andExpect(jsonPath("$.lastName").value("Petrov"))
                 .andExpect(jsonPath("$.phone").value("+375292223344"));
 
-        mockMvc.perform(get("/users/%d".formatted(userId)))
+        mockMvc.perform(get("/users/me")
+                        .header("X-User-Id", "10"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.firstName").value("Petr"))
                 .andExpect(jsonPath("$.lastName").value("Petrov"))
@@ -137,12 +146,13 @@ class UserIntegrationTest {
     }
 
     @Test
-    void createUserReturnsBadRequestWhenRequestIsInvalid() throws Exception {
-        mockMvc.perform(post("/users")
+    void createCurrentUserReturnsBadRequestWhenRequestIsInvalid() throws Exception {
+        mockMvc.perform(post("/users/me")
+                        .header("X-User-Id", "10")
+                        .header("X-User-Email", "ivan.user@example.com")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "email": "not-email",
                                   "firstName": "",
                                   "lastName": "",
                                   "phone": "+375291112233"
@@ -152,32 +162,28 @@ class UserIntegrationTest {
                 .andExpect(jsonPath("$.title").value("Validation failed"))
                 .andExpect(jsonPath("$.status").value(400))
                 .andExpect(jsonPath("$.detail").value("Request validation failed"))
-                .andExpect(jsonPath("$.errors.email").value("must be a well-formed email address"))
                 .andExpect(jsonPath("$.errors.firstName").value("must not be blank"))
                 .andExpect(jsonPath("$.errors.lastName").value("must not be blank"));
     }
 
-    private Long createUser(
+    private void createCurrentUser(
+            Long authUserId,
             String email,
             String firstName,
             String lastName,
             String phone
     ) throws Exception {
-        String response = mockMvc.perform(post("/users")
+        mockMvc.perform(post("/users/me")
+                        .header("X-User-Id", authUserId.toString())
+                        .header("X-User-Email", email)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "email": "%s",
                                   "firstName": "%s",
                                   "lastName": "%s",
                                   "phone": "%s"
                                 }
-                                """.formatted(email, firstName, lastName, phone)))
-                .andExpect(status().isCreated())
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-
-        return Long.valueOf(response.replaceAll(".*\"id\":(\\d+).*", "$1"));
+                                """.formatted(firstName, lastName, phone)))
+                .andExpect(status().isCreated());
     }
 }

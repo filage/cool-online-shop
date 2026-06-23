@@ -47,6 +47,7 @@ class CategoryIntegrationTest {
     @Test
     void createCategoryCreatesCategory() throws Exception {
         mockMvc.perform(post("/categories")
+                        .header("X-User-Role", "ADMIN")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -58,5 +59,22 @@ class CategoryIntegrationTest {
                 .andExpect(jsonPath("$.id").isNumber())
                 .andExpect(jsonPath("$.name").value("Home Office"))
                 .andExpect(jsonPath("$.description").value("Products for remote work and home offices"));
+    }
+
+    @Test
+    void createCategoryReturnsForbiddenWhenUserRoleIsNotAdmin() throws Exception {
+        mockMvc.perform(post("/categories")
+                        .header("X-User-Role", "USER")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "Home Office",
+                                  "description": "Products for remote work and home offices"
+                                }
+                                """))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.title").value("Catalog write forbidden"))
+                .andExpect(jsonPath("$.status").value(403))
+                .andExpect(jsonPath("$.detail").value("Catalog writes require ADMIN role"));
     }
 }

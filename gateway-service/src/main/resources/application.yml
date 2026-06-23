@@ -1,5 +1,5 @@
 server:
-  port: 8080
+  port: ${GATEWAY_SERVICE_PORT:8080}
 
 spring:
   application:
@@ -10,43 +10,37 @@ spring:
         webflux:
           routes:
             - id: auth-service
-              uri: http://localhost:8081
+              uri: ${GATEWAY_AUTH_SERVICE_URL}
               predicates:
                 - Path=/api/auth/**
               filters:
                 - RewritePath=/api/auth/?(?<segment>.*), /auth/$\{segment}
             - id: user-service
-              uri: http://localhost:8082
+              uri: ${GATEWAY_USER_SERVICE_URL}
               predicates:
                 - Path=/api/users/**
               filters:
                 - RewritePath=/api/users/?(?<segment>.*), /users/$\{segment}
-            - id: catalog-products
-              uri: http://localhost:8083
+            - id: catalog-service
+              uri: ${GATEWAY_CATALOG_SERVICE_URL}
               predicates:
-                - Path=/api/catalog/products/**
+                - Path=/api/catalog/**
               filters:
-                - RewritePath=/api/catalog/products/?(?<segment>.*), /products/$\{segment}
-            - id: catalog-categories
-              uri: http://localhost:8083
-              predicates:
-                - Path=/api/catalog/categories/**
-              filters:
-                - RewritePath=/api/catalog/categories/?(?<segment>.*), /categories/$\{segment}
+                - RewritePath=/api/catalog/?(?<segment>.*), /$\{segment}
             - id: cart-service
-              uri: http://localhost:8084
+              uri: ${GATEWAY_CART_SERVICE_URL}
               predicates:
                 - Path=/api/cart/**
               filters:
-                - RewritePath=/api/cart/?(?<segment>.*), /cart/$\{segment}
+                - RewritePath=/api/cart(?<segment>/?.*), /cart$\{segment}
             - id: order-service
-              uri: http://localhost:8085
+              uri: ${GATEWAY_ORDER_SERVICE_URL}
               predicates:
-                - Path=/api/orders/**
+                - Path=/api/orders,/api/orders/**
               filters:
-                - RewritePath=/api/orders/?(?<segment>.*), /orders/$\{segment}
+                - RewritePath=/api/orders(?<segment>/?.*), /orders$\{segment}
             - id: payment-service
-              uri: http://localhost:8086
+              uri: ${GATEWAY_PAYMENT_SERVICE_URL}
               predicates:
                 - Path=/api/payments/**
               filters:
@@ -54,7 +48,7 @@ spring:
 
 gateway:
   jwt:
-    secret: ${AUTH_JWT_SECRET:dev-only-secret-key-for-auth-service-please-change}
+    secret: ${AUTH_JWT_SECRET}
 
 logging:
   level:
