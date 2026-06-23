@@ -62,6 +62,7 @@ class ProductIntegrationTest {
     @Test
     void createProductCreatesProductWhenCategoryExists() throws Exception {
         mockMvc.perform(post("/products")
+                        .header("X-User-Role", "ADMIN")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -82,8 +83,29 @@ class ProductIntegrationTest {
     }
 
     @Test
+    void createProductReturnsForbiddenWhenUserRoleIsNotAdmin() throws Exception {
+        mockMvc.perform(post("/products")
+                        .header("X-User-Role", "USER")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "Mechanical Keyboard",
+                                  "description": "Compact mechanical keyboard",
+                                  "price": 89.99,
+                                  "categoryId": 1,
+                                  "availableQuantity": 15
+                                }
+                                """))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.title").value("Catalog write forbidden"))
+                .andExpect(jsonPath("$.status").value(403))
+                .andExpect(jsonPath("$.detail").value("Catalog writes require ADMIN role"));
+    }
+
+    @Test
     void createProductReturnsNotFoundWhenCategoryDoesNotExist() throws Exception {
         mockMvc.perform(post("/products")
+                        .header("X-User-Role", "ADMIN")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -104,7 +126,8 @@ class ProductIntegrationTest {
     void deleteProductSoftDeletesProduct() throws Exception {
         long productId = createProductAndReturnId();
 
-        mockMvc.perform(delete("/products/" + productId))
+        mockMvc.perform(delete("/products/" + productId)
+                        .header("X-User-Role", "ADMIN"))
                 .andExpect(status().isNoContent());
 
         mockMvc.perform(get("/products/" + productId))
@@ -120,6 +143,7 @@ class ProductIntegrationTest {
 
     private long createProductAndReturnId() throws Exception {
         String response = mockMvc.perform(post("/products")
+                        .header("X-User-Role", "ADMIN")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {

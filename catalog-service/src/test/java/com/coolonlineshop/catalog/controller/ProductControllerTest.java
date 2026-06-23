@@ -23,6 +23,7 @@ import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -114,6 +115,7 @@ class ProductControllerTest {
         when(productService.createProduct(any(ProductCreateRequest.class))).thenReturn(product);
 
         mockMvc.perform(post("/products")
+                        .header("X-User-Role", "ADMIN")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -133,11 +135,34 @@ class ProductControllerTest {
     }
 
     @Test
+    void createProductReturnsForbiddenWhenUserRoleIsNotAdmin() throws Exception {
+        mockMvc.perform(post("/products")
+                        .header("X-User-Role", "USER")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "Mechanical Keyboard",
+                                  "description": "Compact mechanical keyboard",
+                                  "price": 89.99,
+                                  "categoryId": 1,
+                                  "availableQuantity": 15
+                                }
+                                """))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.title").value("Catalog write forbidden"))
+                .andExpect(jsonPath("$.status").value(403))
+                .andExpect(jsonPath("$.detail").value("Catalog writes require ADMIN role"));
+
+        verifyNoInteractions(productService);
+    }
+
+    @Test
     void createProductReturnsNotFoundWhenCategoryDoesNotExist() throws Exception {
         when(productService.createProduct(any(ProductCreateRequest.class)))
                 .thenThrow(new CategoryNotFoundException(999L));
 
         mockMvc.perform(post("/products")
+                        .header("X-User-Role", "ADMIN")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -157,6 +182,7 @@ class ProductControllerTest {
     @Test
     void createProductReturnsBadRequestWhenRequestIsInvalid() throws Exception {
         mockMvc.perform(post("/products")
+                        .header("X-User-Role", "ADMIN")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -190,6 +216,7 @@ class ProductControllerTest {
         when(productService.updateProduct(any(Long.class), any(ProductUpdateRequest.class))).thenReturn(product);
 
         mockMvc.perform(put("/products/1")
+                        .header("X-User-Role", "ADMIN")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -209,11 +236,34 @@ class ProductControllerTest {
     }
 
     @Test
+    void updateProductReturnsForbiddenWhenUserRoleIsNotAdmin() throws Exception {
+        mockMvc.perform(put("/products/1")
+                        .header("X-User-Role", "USER")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "Updated Mouse",
+                                  "description": "Updated wireless mouse",
+                                  "price": 34.99,
+                                  "categoryId": 1,
+                                  "availableQuantity": 40
+                                }
+                                """))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.title").value("Catalog write forbidden"))
+                .andExpect(jsonPath("$.status").value(403))
+                .andExpect(jsonPath("$.detail").value("Catalog writes require ADMIN role"));
+
+        verifyNoInteractions(productService);
+    }
+
+    @Test
     void updateProductReturnsNotFoundWhenProductDoesNotExist() throws Exception {
         when(productService.updateProduct(any(Long.class), any(ProductUpdateRequest.class)))
                 .thenThrow(new ProductNotFoundException(999L));
 
         mockMvc.perform(put("/products/999")
+                        .header("X-User-Role", "ADMIN")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -236,6 +286,7 @@ class ProductControllerTest {
                 .thenThrow(new CategoryNotFoundException(999L));
 
         mockMvc.perform(put("/products/1")
+                        .header("X-User-Role", "ADMIN")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -255,6 +306,7 @@ class ProductControllerTest {
     @Test
     void updateProductReturnsBadRequestWhenRequestIsInvalid() throws Exception {
         mockMvc.perform(put("/products/1")
+                        .header("X-User-Role", "ADMIN")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -277,15 +329,29 @@ class ProductControllerTest {
 
     @Test
     void deleteProductReturnsNoContent() throws Exception {
-        mockMvc.perform(delete("/products/1"))
+        mockMvc.perform(delete("/products/1")
+                        .header("X-User-Role", "ADMIN"))
                 .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void deleteProductReturnsForbiddenWhenUserRoleIsNotAdmin() throws Exception {
+        mockMvc.perform(delete("/products/1")
+                        .header("X-User-Role", "USER"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.title").value("Catalog write forbidden"))
+                .andExpect(jsonPath("$.status").value(403))
+                .andExpect(jsonPath("$.detail").value("Catalog writes require ADMIN role"));
+
+        verifyNoInteractions(productService);
     }
 
     @Test
     void deleteProductReturnsNotFoundWhenProductDoesNotExist() throws Exception {
         doThrow(new ProductNotFoundException(999L)).when(productService).deleteProduct(999L);
 
-        mockMvc.perform(delete("/products/999"))
+        mockMvc.perform(delete("/products/999")
+                        .header("X-User-Role", "ADMIN"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.title").value("Product not found"))
                 .andExpect(jsonPath("$.status").value(404))

@@ -15,6 +15,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -65,6 +66,7 @@ class CategoryControllerTest {
         when(categoryService.createCategory(any(CategoryCreateRequest.class))).thenReturn(category);
 
         mockMvc.perform(post("/categories")
+                        .header("X-User-Role", "ADMIN")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -79,8 +81,28 @@ class CategoryControllerTest {
     }
 
     @Test
+    void createCategoryReturnsForbiddenWhenUserRoleIsNotAdmin() throws Exception {
+        mockMvc.perform(post("/categories")
+                        .header("X-User-Role", "USER")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "Home Office",
+                                  "description": "Products for remote work and home offices"
+                                }
+                                """))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.title").value("Catalog write forbidden"))
+                .andExpect(jsonPath("$.status").value(403))
+                .andExpect(jsonPath("$.detail").value("Catalog writes require ADMIN role"));
+
+        verifyNoInteractions(categoryService);
+    }
+
+    @Test
     void createCategoryReturnsBadRequestWhenRequestIsInvalid() throws Exception {
         mockMvc.perform(post("/categories")
+                        .header("X-User-Role", "ADMIN")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
