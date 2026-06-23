@@ -35,6 +35,18 @@ services:
     volumes:
       - order_postgres_data:/var/lib/postgresql/data
 
+  auth-postgres:
+    image: postgres:16-alpine
+    container_name: auth-postgres
+    environment:
+      POSTGRES_DB: ${AUTH_DB_NAME}
+      POSTGRES_USER: ${AUTH_DB_USER}
+      POSTGRES_PASSWORD: ${AUTH_DB_PASSWORD}
+    ports:
+      - "${AUTH_DB_PORT}:5432"
+    volumes:
+      - auth_postgres_data:/var/lib/postgresql/data
+
   cart-redis:
     image: redis:7-alpine
     container_name: cart-redis
@@ -45,3 +57,4 @@ volumes:
   catalog_postgres_data:
   user_postgres_data:
   order_postgres_data:
+  auth_postgres_data:

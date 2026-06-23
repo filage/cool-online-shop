@@ -9,18 +9,30 @@ spring:
       server:
         webflux:
           routes:
+            - id: auth-service
+              uri: ${GATEWAY_AUTH_SERVICE_URL}
+              predicates:
+                - Path=/api/auth/**
+              filters:
+                - RewritePath=/api/auth/?(?<segment>.*), /auth/$\{segment}
             - id: user-service
               uri: ${GATEWAY_USER_SERVICE_URL}
               predicates:
                 - Path=/api/users/**
               filters:
                 - RewritePath=/api/users/?(?<segment>.*), /users/$\{segment}
-            - id: catalog-service
+            - id: catalog-products
               uri: ${GATEWAY_CATALOG_SERVICE_URL}
               predicates:
-                - Path=/api/catalog/**
+                - Path=/api/catalog/products/**
               filters:
-                - RewritePath=/api/catalog/?(?<segment>.*), /$\{segment}
+                - RewritePath=/api/catalog/products/?(?<segment>.*), /products/$\{segment}
+            - id: catalog-categories
+              uri: ${GATEWAY_CATALOG_SERVICE_URL}
+              predicates:
+                - Path=/api/catalog/categories/**
+              filters:
+                - RewritePath=/api/catalog/categories/?(?<segment>.*), /categories/$\{segment}
             - id: cart-service
               uri: ${GATEWAY_CART_SERVICE_URL}
               predicates:
@@ -33,6 +45,16 @@ spring:
                 - Path=/api/orders/**
               filters:
                 - RewritePath=/api/orders/?(?<segment>.*), /orders/$\{segment}
+            - id: payment-service
+              uri: ${GATEWAY_PAYMENT_SERVICE_URL}
+              predicates:
+                - Path=/api/payments/**
+              filters:
+                - RewritePath=/api/payments/?(?<segment>.*), /payments/$\{segment}
+
+gateway:
+  jwt:
+    secret: ${AUTH_JWT_SECRET:dev-only-secret-key-for-auth-service-please-change}
 
 logging:
   level:

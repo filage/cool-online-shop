@@ -24,12 +24,12 @@ public class OrderService {
         this.orderRepository = orderRepository;
     }
 
-    public OrderResponse createOrder(OrderCreateRequest request) {
+    public OrderResponse createOrder(Long userId, OrderCreateRequest request) {
         LocalDateTime now = LocalDateTime.now();
         BigDecimal totalAmount = calculateTotalAmount(request.items());
 
         Order order = new Order(
-                request.userId(),
+                userId,
                 OrderStatus.CREATED,
                 totalAmount,
                 now,
@@ -46,9 +46,13 @@ public class OrderService {
         return toResponse(savedOrder);
     }
 
-    public OrderResponse getOrderById(Long id) {
+    public OrderResponse getOrderById(Long id, Long userId) {
         Order order = orderRepository.findById(id)
                 .orElseThrow(() -> new OrderNotFoundException(id));
+
+        if (!order.getUserId().equals(userId)) {
+            throw new OrderNotFoundException(id);
+        }
 
         return toResponse(order);
     }

@@ -20,6 +20,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -39,13 +40,13 @@ class OrderControllerTest {
     @Test
     void createOrderReturnsCreatedOrder() throws Exception {
         OrderResponse response = createResponse(1L, 1L);
-        when(orderService.createOrder(any(OrderCreateRequest.class))).thenReturn(response);
+        when(orderService.createOrder(eq(1L), any(OrderCreateRequest.class))).thenReturn(response);
 
         mockMvc.perform(post("/orders")
+                        .header("X-User-Id", "1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "userId": 1,
                                   "items": [
                                     {
                                       "productId": 10,
@@ -69,10 +70,10 @@ class OrderControllerTest {
     @Test
     void createOrderReturnsBadRequestWhenRequestIsInvalid() throws Exception {
         mockMvc.perform(post("/orders")
+                        .header("X-User-Id", "1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "userId": null,
                                   "items": []
                                 }
                                 """))
@@ -80,16 +81,38 @@ class OrderControllerTest {
                 .andExpect(jsonPath("$.title").value("Validation failed"))
                 .andExpect(jsonPath("$.status").value(400))
                 .andExpect(jsonPath("$.detail").value("Request validation failed"))
-                .andExpect(jsonPath("$.errors.userId").exists())
                 .andExpect(jsonPath("$.errors.items").exists());
+    }
+
+    @Test
+    void createOrderReturnsBadRequestWhenUserHeaderIsMissing() throws Exception {
+        mockMvc.perform(post("/orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "items": [
+                                    {
+                                      "productId": 10,
+                                      "productName": "Wireless Mouse",
+                                      "productPrice": 29.99,
+                                      "quantity": 2
+                                    }
+                                  ]
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.title").value("Missing request header"))
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.detail").value("Required request header is missing: X-User-Id"));
     }
 
     @Test
     void getOrderByIdReturnsOrder() throws Exception {
         OrderResponse response = createResponse(1L, 1L);
-        when(orderService.getOrderById(1L)).thenReturn(response);
+        when(orderService.getOrderById(1L, 1L)).thenReturn(response);
 
-        mockMvc.perform(get("/orders/1"))
+        mockMvc.perform(get("/orders/1")
+                        .header("X-User-Id", "1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(1))
                 .andExpect(jsonPath("$.userId").value(1))
@@ -98,9 +121,10 @@ class OrderControllerTest {
 
     @Test
     void getOrderByIdReturnsNotFoundWhenOrderDoesNotExist() throws Exception {
-        when(orderService.getOrderById(999L)).thenThrow(new OrderNotFoundException(999L));
+        when(orderService.getOrderById(999L, 1L)).thenThrow(new OrderNotFoundException(999L));
 
-        mockMvc.perform(get("/orders/999"))
+        mockMvc.perform(get("/orders/999")
+                        .header("X-User-Id", "1"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.title").value("Order not found"))
                 .andExpect(jsonPath("$.status").value(404))
@@ -115,7 +139,7 @@ class OrderControllerTest {
         ));
 
         mockMvc.perform(get("/orders/by-user")
-                        .param("userId", "1"))
+                        .header("X-User-Id", "1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(2))
                 .andExpect(jsonPath("$[0].userId").value(1))
