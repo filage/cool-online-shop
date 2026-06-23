@@ -1,11 +1,16 @@
 package com.coolonlineshop.auth.controller;
 
 import com.coolonlineshop.auth.dto.AuthResponse;
+import com.coolonlineshop.auth.dto.CurrentUserResponse;
 import com.coolonlineshop.auth.dto.LoginRequest;
 import com.coolonlineshop.auth.dto.RegisterRequest;
+import com.coolonlineshop.auth.entity.Role;
 import com.coolonlineshop.auth.service.AuthService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -31,5 +36,14 @@ public class AuthController {
     @PostMapping("/login")
     public AuthResponse login(@Valid @RequestBody LoginRequest request) {
         return authService.login(request);
+    }
+
+    @GetMapping("/me")
+    public CurrentUserResponse getCurrentUser(@AuthenticationPrincipal Jwt jwt) {
+        return new CurrentUserResponse(
+                Long.valueOf(jwt.getSubject()),
+                jwt.getClaimAsString("email"),
+                Role.valueOf(jwt.getClaimAsString("role"))
+        );
     }
 }

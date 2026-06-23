@@ -16,6 +16,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -98,6 +99,24 @@ class AuthIntegrationTest {
     }
 
     @Test
+    void getCurrentUserReturnsUserFromAccessToken() throws Exception {
+        String accessToken = registerAndReturnToken("ivan.user@example.com", "password123");
+
+        mockMvc.perform(get("/auth/me")
+                        .header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.userId").isNumber())
+                .andExpect(jsonPath("$.email").value("ivan.user@example.com"))
+                .andExpect(jsonPath("$.role").value("USER"));
+    }
+
+    @Test
+    void getCurrentUserReturnsUnauthorizedWithoutAccessToken() throws Exception {
+        mockMvc.perform(get("/auth/me"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void registerReturnsConflictWhenEmailAlreadyExists() throws Exception {
         register("ivan.user@example.com", "password123");
 
@@ -152,7 +171,11 @@ class AuthIntegrationTest {
     }
 
     private void register(String email, String password) throws Exception {
-        mockMvc.perform(post("/auth/register")
+        registerAndReturnToken(email, password);
+    }
+
+    private String registerAndReturnToken(String email, String password) throws Exception {
+        String response = mockMvc.perform(post("/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -160,6 +183,11 @@ class AuthIntegrationTest {
                                   "password": "%s"
                                 }
                                 """.formatted(email, password)))
-                .andExpect(status().isCreated());
+                .andExpect(status().isCreated())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        return response.replaceAll("(?s).*\"accessToken\"\\s*:\\s*\"([^\"]+)\".*", "$1");
     }
 }
