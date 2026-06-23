@@ -6,6 +6,7 @@ import com.coolonlineshop.user.dto.UserUpdateRequest;
 import com.coolonlineshop.user.entity.User;
 import com.coolonlineshop.user.exception.EmailAlreadyExistsException;
 import com.coolonlineshop.user.exception.UserNotFoundException;
+import com.coolonlineshop.user.exception.UserProfileAlreadyExistsException;
 import com.coolonlineshop.user.repository.UserRepository;
 import org.springframework.stereotype.Service;
 
@@ -20,14 +21,19 @@ public class UserService {
         this.userRepository = userRepository;
     }
 
-    public UserResponse createUser(UserCreateRequest request) {
-        if (userRepository.findByEmail(request.email()).isPresent()) {
-            throw new EmailAlreadyExistsException(request.email());
+    public UserResponse createCurrentUser(Long authUserId, String email, UserCreateRequest request) {
+        if (userRepository.findByAuthUserId(authUserId).isPresent()) {
+            throw new UserProfileAlreadyExistsException(authUserId);
+        }
+
+        if (userRepository.findByEmail(email).isPresent()) {
+            throw new EmailAlreadyExistsException(email);
         }
 
         LocalDateTime now = LocalDateTime.now();
         User user = new User(
-                request.email(),
+                authUserId,
+                email,
                 request.firstName(),
                 request.lastName(),
                 request.phone(),
@@ -40,23 +46,16 @@ public class UserService {
         return toResponse(savedUser);
     }
 
-    public UserResponse getUserById(Long id) {
-        User user = userRepository.findById(id)
-                .orElseThrow(() -> new UserNotFoundException(id));
+    public UserResponse getCurrentUser(Long authUserId) {
+        User user = userRepository.findByAuthUserId(authUserId)
+                .orElseThrow(() -> UserNotFoundException.forAuthUserId(authUserId));
 
         return toResponse(user);
     }
 
-    public UserResponse getUserByEmail(String email) {
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new UserNotFoundException(email));
-
-        return toResponse(user);
-    }
-
-    public UserResponse updateUser(Long id, UserUpdateRequest request) {
-        User user = userRepository.findById(id)
-                .orElseThrow(() -> new UserNotFoundException(id));
+    public UserResponse updateCurrentUser(Long authUserId, UserUpdateRequest request) {
+        User user = userRepository.findByAuthUserId(authUserId)
+                .orElseThrow(() -> UserNotFoundException.forAuthUserId(authUserId));
 
         user.updateProfile(
                 request.firstName(),
@@ -73,6 +72,7 @@ public class UserService {
     private UserResponse toResponse(User user) {
         return new UserResponse(
                 user.getId(),
+                user.getAuthUserId(),
                 user.getEmail(),
                 user.getFirstName(),
                 user.getLastName(),

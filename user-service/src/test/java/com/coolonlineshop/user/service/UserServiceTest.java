@@ -6,6 +6,7 @@ import com.coolonlineshop.user.dto.UserUpdateRequest;
 import com.coolonlineshop.user.entity.User;
 import com.coolonlineshop.user.exception.EmailAlreadyExistsException;
 import com.coolonlineshop.user.exception.UserNotFoundException;
+import com.coolonlineshop.user.exception.UserProfileAlreadyExistsException;
 import com.coolonlineshop.user.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -36,13 +37,13 @@ class UserServiceTest {
     private UserService userService;
 
     @Test
-    void createUserSavesNewUserAndReturnsResponse() {
+    void createCurrentUserSavesNewUserWithTrustedAuthDataAndReturnsResponse() {
         UserCreateRequest request = new UserCreateRequest(
-                "ivan.user@example.com",
                 "Ivan",
                 "User",
                 "+375291112233"
         );
+        when(userRepository.findByAuthUserId(10L)).thenReturn(Optional.empty());
         when(userRepository.findByEmail("ivan.user@example.com")).thenReturn(Optional.empty());
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
             User user = invocation.getArgument(0);
@@ -50,11 +51,13 @@ class UserServiceTest {
             return user;
         });
 
-        UserResponse response = userService.createUser(request);
+        UserResponse response = userService.createCurrentUser(10L, "ivan.user@example.com", request);
 
+        verify(userRepository).findByAuthUserId(10L);
         verify(userRepository).findByEmail("ivan.user@example.com");
         verify(userRepository).save(any(User.class));
         assertEquals(1L, response.id());
+        assertEquals(10L, response.authUserId());
         assertEquals("ivan.user@example.com", response.email());
         assertEquals("Ivan", response.firstName());
         assertEquals("User", response.lastName());
@@ -65,67 +68,79 @@ class UserServiceTest {
     }
 
     @Test
-    void createUserThrowsExceptionWhenEmailAlreadyExists() {
+    void createCurrentUserThrowsExceptionWhenProfileAlreadyExistsForAuthUser() {
         UserCreateRequest request = new UserCreateRequest(
-                "ivan.user@example.com",
                 "Ivan",
                 "User",
                 "+375291112233"
         );
-        User existingUser = createUser(1L, "ivan.user@example.com");
+        User existingUser = createUser(1L, 10L, "ivan.user@example.com");
+        when(userRepository.findByAuthUserId(10L)).thenReturn(Optional.of(existingUser));
+
+        UserProfileAlreadyExistsException exception = assertThrows(
+                UserProfileAlreadyExistsException.class,
+                () -> userService.createCurrentUser(10L, "ivan.user@example.com", request)
+        );
+
+        verify(userRepository).findByAuthUserId(10L);
+        verify(userRepository, never()).findByEmail("ivan.user@example.com");
+        verify(userRepository, never()).save(any(User.class));
+        assertEquals("Profile for auth user 10 already exists", exception.getMessage());
+    }
+
+    @Test
+    void createCurrentUserThrowsExceptionWhenTrustedEmailAlreadyExists() {
+        UserCreateRequest request = new UserCreateRequest(
+                "Ivan",
+                "User",
+                "+375291112233"
+        );
+        User existingUser = createUser(1L, 11L, "ivan.user@example.com");
+        when(userRepository.findByAuthUserId(10L)).thenReturn(Optional.empty());
         when(userRepository.findByEmail("ivan.user@example.com")).thenReturn(Optional.of(existingUser));
 
         EmailAlreadyExistsException exception = assertThrows(
                 EmailAlreadyExistsException.class,
-                () -> userService.createUser(request)
+                () -> userService.createCurrentUser(10L, "ivan.user@example.com", request)
         );
 
+        verify(userRepository).findByAuthUserId(10L);
         verify(userRepository).findByEmail("ivan.user@example.com");
         verify(userRepository, never()).save(any(User.class));
         assertEquals("User with email ivan.user@example.com already exists", exception.getMessage());
     }
 
     @Test
-    void getUserByIdReturnsUserWhenUserExists() {
-        User user = createUser(1L, "ivan.user@example.com");
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+    void getCurrentUserReturnsUserWhenProfileExists() {
+        User user = createUser(1L, 10L, "ivan.user@example.com");
+        when(userRepository.findByAuthUserId(10L)).thenReturn(Optional.of(user));
 
-        UserResponse response = userService.getUserById(1L);
+        UserResponse response = userService.getCurrentUser(10L);
 
-        verify(userRepository).findById(1L);
+        verify(userRepository).findByAuthUserId(10L);
         assertEquals(1L, response.id());
+        assertEquals(10L, response.authUserId());
         assertEquals("ivan.user@example.com", response.email());
     }
 
     @Test
-    void getUserByIdThrowsExceptionWhenUserDoesNotExist() {
-        when(userRepository.findById(999L)).thenReturn(Optional.empty());
+    void getCurrentUserThrowsExceptionWhenProfileDoesNotExist() {
+        when(userRepository.findByAuthUserId(999L)).thenReturn(Optional.empty());
 
         UserNotFoundException exception = assertThrows(
                 UserNotFoundException.class,
-                () -> userService.getUserById(999L)
+                () -> userService.getCurrentUser(999L)
         );
 
-        verify(userRepository).findById(999L);
-        assertEquals("User with id 999 not found", exception.getMessage());
+        verify(userRepository).findByAuthUserId(999L);
+        assertEquals("Profile for auth user 999 not found", exception.getMessage());
     }
 
     @Test
-    void getUserByEmailReturnsUserWhenUserExists() {
-        User user = createUser(1L, "ivan.user@example.com");
-        when(userRepository.findByEmail("ivan.user@example.com")).thenReturn(Optional.of(user));
-
-        UserResponse response = userService.getUserByEmail("ivan.user@example.com");
-
-        verify(userRepository).findByEmail("ivan.user@example.com");
-        assertEquals(1L, response.id());
-        assertEquals("ivan.user@example.com", response.email());
-    }
-
-    @Test
-    void updateUserUpdatesExistingUserAndReturnsResponse() {
+    void updateCurrentUserUpdatesExistingUserAndReturnsResponse() {
         LocalDateTime oldUpdatedAt = LocalDateTime.of(2026, 1, 1, 10, 0);
         User user = new User(
+                10L,
                 "ivan.user@example.com",
                 "Ivan",
                 "User",
@@ -139,14 +154,15 @@ class UserServiceTest {
                 "Petrov",
                 "+375292223344"
         );
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findByAuthUserId(10L)).thenReturn(Optional.of(user));
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        UserResponse response = userService.updateUser(1L, request);
+        UserResponse response = userService.updateCurrentUser(10L, request);
 
-        verify(userRepository).findById(1L);
+        verify(userRepository).findByAuthUserId(10L);
         verify(userRepository).save(user);
         assertEquals(1L, response.id());
+        assertEquals(10L, response.authUserId());
         assertEquals("ivan.user@example.com", response.email());
         assertEquals("Petr", response.firstName());
         assertEquals("Petrov", response.lastName());
@@ -154,8 +170,9 @@ class UserServiceTest {
         assertTrue(response.updatedAt().isAfter(oldUpdatedAt));
     }
 
-    private User createUser(Long id, String email) {
+    private User createUser(Long id, Long authUserId, String email) {
         User user = new User(
+                authUserId,
                 email,
                 "Ivan",
                 "User",

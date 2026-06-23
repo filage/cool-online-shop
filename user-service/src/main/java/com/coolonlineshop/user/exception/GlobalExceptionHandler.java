@@ -36,6 +36,17 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(problemDetail);
     }
 
+    @ExceptionHandler(UserProfileAlreadyExistsException.class)
+    public ResponseEntity<ProblemDetail> handleUserProfileAlreadyExists(UserProfileAlreadyExistsException exception) {
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.CONFLICT,
+                exception.getMessage()
+        );
+        problemDetail.setTitle("User profile already exists");
+
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(problemDetail);
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ProblemDetail> handleValidation(MethodArgumentNotValidException exception) {
         Map<String, String> errors = exception.getBindingResult()
