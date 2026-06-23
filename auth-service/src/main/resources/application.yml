@@ -5,14 +5,22 @@ spring:
   application:
     name: auth-service
   datasource:
-    url: jdbc:postgresql://localhost:5432/auth_db
-    username: postgres
-    password: postgres
+    url: jdbc:postgresql://localhost:${AUTH_DB_PORT}/${AUTH_DB_NAME}
+    username: ${AUTH_DB_USER}
+    password: ${AUTH_DB_PASSWORD}
   jpa:
     open-in-view: false
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
+
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.yml
 
 logging:
   level:
     com.coolonlineshop.auth: DEBUG
+
+auth:
+  jwt:
+    secret: ${AUTH_JWT_SECRET:dev-only-secret-key-for-auth-service-please-change}
+    expiration-minutes: ${AUTH_JWT_EXPIRATION_MINUTES:60}

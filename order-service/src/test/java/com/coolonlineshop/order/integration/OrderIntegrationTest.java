@@ -59,7 +59,8 @@ class OrderIntegrationTest {
     void createOrderStoresOrderAndItemsInDatabase() throws Exception {
         Long orderId = createOrder(1L);
 
-        mockMvc.perform(get("/orders/%d".formatted(orderId)))
+        mockMvc.perform(get("/orders/%d".formatted(orderId))
+                        .header("X-User-Id", "1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(orderId))
                 .andExpect(jsonPath("$.userId").value(1))
@@ -83,7 +84,7 @@ class OrderIntegrationTest {
         createOrder(2L);
 
         mockMvc.perform(get("/orders/by-user")
-                        .param("userId", "1"))
+                        .header("X-User-Id", "1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(2))
                 .andExpect(jsonPath("$[0].userId").value(1))
@@ -95,7 +96,8 @@ class OrderIntegrationTest {
 
     @Test
     void getOrderByIdReturnsNotFoundWhenOrderDoesNotExist() throws Exception {
-        mockMvc.perform(get("/orders/999"))
+        mockMvc.perform(get("/orders/999")
+                        .header("X-User-Id", "1"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.title").value("Order not found"))
                 .andExpect(jsonPath("$.status").value(404))
@@ -103,12 +105,24 @@ class OrderIntegrationTest {
     }
 
     @Test
+    void getOrderByIdReturnsNotFoundWhenOrderBelongsToAnotherUser() throws Exception {
+        Long orderId = createOrder(2L);
+
+        mockMvc.perform(get("/orders/%d".formatted(orderId))
+                        .header("X-User-Id", "1"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.title").value("Order not found"))
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.detail").value("Order with id %d not found".formatted(orderId)));
+    }
+
+    @Test
     void createOrderReturnsBadRequestWhenRequestIsInvalid() throws Exception {
         mockMvc.perform(post("/orders")
+                        .header("X-User-Id", "1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "userId": null,
                                   "items": []
                                 }
                                 """))
@@ -116,16 +130,15 @@ class OrderIntegrationTest {
                 .andExpect(jsonPath("$.title").value("Validation failed"))
                 .andExpect(jsonPath("$.status").value(400))
                 .andExpect(jsonPath("$.detail").value("Request validation failed"))
-                .andExpect(jsonPath("$.errors.userId").exists())
                 .andExpect(jsonPath("$.errors.items").exists());
     }
 
     private Long createOrder(Long userId) throws Exception {
         String response = mockMvc.perform(post("/orders")
+                        .header("X-User-Id", userId.toString())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "userId": %d,
                                   "items": [
                                     {
                                       "productId": 10,
@@ -141,12 +154,12 @@ class OrderIntegrationTest {
                                     }
                                   ]
                                 }
-                                """.formatted(userId)))
+                                """))
                 .andExpect(status().isCreated())
                 .andReturn()
                 .getResponse()
                 .getContentAsString();
 
-        return Long.valueOf(response.replaceAll(".*\"id\":(\\d+).*", "$1"));
+        return Long.valueOf(response.replaceAll("^\\{\"id\":(\\d+).*", "$1"));
     }
 }
