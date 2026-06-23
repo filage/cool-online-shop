@@ -39,7 +39,8 @@ class AuthControllerTest {
         AuthResponse response = new AuthResponse(
                 1L,
                 "ivan.user@example.com",
-                Role.USER
+                Role.USER,
+                "access-token"
         );
         when(authService.register(any(RegisterRequest.class))).thenReturn(response);
 
@@ -54,7 +55,8 @@ class AuthControllerTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.userId").value(1))
                 .andExpect(jsonPath("$.email").value("ivan.user@example.com"))
-                .andExpect(jsonPath("$.role").value("USER"));
+                .andExpect(jsonPath("$.role").value("USER"))
+                .andExpect(jsonPath("$.accessToken").value("access-token"));
     }
 
     @Test
@@ -99,7 +101,8 @@ class AuthControllerTest {
         AuthResponse response = new AuthResponse(
                 1L,
                 "ivan.user@example.com",
-                Role.USER
+                Role.USER,
+                "access-token"
         );
         when(authService.login(any(LoginRequest.class))).thenReturn(response);
 
@@ -114,7 +117,8 @@ class AuthControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.userId").value(1))
                 .andExpect(jsonPath("$.email").value("ivan.user@example.com"))
-                .andExpect(jsonPath("$.role").value("USER"));
+                .andExpect(jsonPath("$.role").value("USER"))
+                .andExpect(jsonPath("$.accessToken").value("access-token"));
     }
 
     @Test

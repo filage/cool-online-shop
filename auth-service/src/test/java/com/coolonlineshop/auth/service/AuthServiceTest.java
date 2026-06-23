@@ -36,6 +36,9 @@ class AuthServiceTest {
     @Mock
     private PasswordEncoder passwordEncoder;
 
+    @Mock
+    private JwtService jwtService;
+
     @InjectMocks
     private AuthService authService;
 
@@ -52,15 +55,18 @@ class AuthServiceTest {
             ReflectionTestUtils.setField(authUser, "id", 1L);
             return authUser;
         });
+        when(jwtService.generateToken(any(AuthUser.class))).thenReturn("access-token");
 
         AuthResponse response = authService.register(request);
 
         verify(authUserRepository).findByEmail("ivan.user@example.com");
         verify(passwordEncoder).encode("password123");
         verify(authUserRepository).save(any(AuthUser.class));
+        verify(jwtService).generateToken(any(AuthUser.class));
         assertEquals(1L, response.userId());
         assertEquals("ivan.user@example.com", response.email());
         assertEquals(Role.USER, response.role());
+        assertEquals("access-token", response.accessToken());
     }
 
     @Test
@@ -92,14 +98,17 @@ class AuthServiceTest {
         AuthUser authUser = createAuthUser(1L, "ivan.user@example.com", "hashed-password");
         when(authUserRepository.findByEmail("ivan.user@example.com")).thenReturn(Optional.of(authUser));
         when(passwordEncoder.matches("password123", "hashed-password")).thenReturn(true);
+        when(jwtService.generateToken(authUser)).thenReturn("access-token");
 
         AuthResponse response = authService.login(request);
 
         verify(authUserRepository).findByEmail("ivan.user@example.com");
         verify(passwordEncoder).matches("password123", "hashed-password");
+        verify(jwtService).generateToken(authUser);
         assertEquals(1L, response.userId());
         assertEquals("ivan.user@example.com", response.email());
         assertEquals(Role.USER, response.role());
+        assertEquals("access-token", response.accessToken());
     }
 
     @Test

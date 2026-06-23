@@ -18,13 +18,16 @@ public class AuthService {
 
     private final AuthUserRepository authUserRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JwtService jwtService;
 
     public AuthService(
             AuthUserRepository authUserRepository,
-            PasswordEncoder passwordEncoder
+            PasswordEncoder passwordEncoder,
+            JwtService jwtService
     ) {
         this.authUserRepository = authUserRepository;
         this.passwordEncoder = passwordEncoder;
+        this.jwtService = jwtService;
     }
 
     public AuthResponse register(RegisterRequest request) {
@@ -59,7 +62,8 @@ public class AuthService {
         return new AuthResponse(
                 authUser.getId(),
                 authUser.getEmail(),
-                authUser.getRole()
+                authUser.getRole(),
+                jwtService.generateToken(authUser)
         );
     }
 }

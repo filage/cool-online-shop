@@ -19,3 +19,8 @@ spring:
 logging:
   level:
     com.coolonlineshop.auth: DEBUG
+
+auth:
+  jwt:
+    secret: ${AUTH_JWT_SECRET:dev-only-secret-key-for-auth-service-please-change}
+    expiration-minutes: ${AUTH_JWT_EXPIRATION_MINUTES:60}

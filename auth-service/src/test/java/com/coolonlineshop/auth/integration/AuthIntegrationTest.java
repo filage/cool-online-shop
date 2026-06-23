@@ -70,7 +70,8 @@ class AuthIntegrationTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.userId").isNumber())
                 .andExpect(jsonPath("$.email").value("ivan.user@example.com"))
-                .andExpect(jsonPath("$.role").value("USER"));
+                .andExpect(jsonPath("$.role").value("USER"))
+                .andExpect(jsonPath("$.accessToken").isString());
 
         var authUser = authUserRepository.findByEmail("ivan.user@example.com").orElseThrow();
 
@@ -92,7 +93,8 @@ class AuthIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.userId").isNumber())
                 .andExpect(jsonPath("$.email").value("ivan.user@example.com"))
-                .andExpect(jsonPath("$.role").value("USER"));
+                .andExpect(jsonPath("$.role").value("USER"))
+                .andExpect(jsonPath("$.accessToken").isString());
     }
 
     @Test

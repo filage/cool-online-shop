@@ -5,6 +5,7 @@ import com.coolonlineshop.auth.entity.Role;
 public record AuthResponse(
         Long userId,
         String email,
-        Role role
+        Role role,
+        String accessToken
 ) {
 }
