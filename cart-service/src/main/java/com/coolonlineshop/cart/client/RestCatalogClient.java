@@ -1,10 +1,12 @@
 package com.coolonlineshop.cart.client;
 
+import com.coolonlineshop.cart.exception.CatalogServiceUnavailableException;
 import com.coolonlineshop.cart.exception.ProductNotFoundException;
 import com.coolonlineshop.cart.exception.ProductQuantityNotAvailableException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
 @Component
@@ -43,8 +45,13 @@ public class RestCatalogClient implements CatalogClient {
             if (exception.getStatusCode().value() == HttpStatus.NOT_FOUND.value()) {
                 throw new ProductNotFoundException(productId);
             }
+            if (exception.getStatusCode().is5xxServerError()) {
+                throw new CatalogServiceUnavailableException();
+            }
 
             throw exception;
+        } catch (RestClientException exception) {
+            throw new CatalogServiceUnavailableException();
         }
     }
 }
