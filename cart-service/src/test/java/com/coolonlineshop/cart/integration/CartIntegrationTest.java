@@ -1,7 +1,9 @@
 package com.coolonlineshop.cart.integration;
 
 import com.coolonlineshop.cart.client.CatalogClient;
+import com.coolonlineshop.cart.exception.CatalogServiceUnavailableException;
 import com.coolonlineshop.cart.exception.ProductNotFoundException;
+import com.coolonlineshop.cart.exception.ProductQuantityNotAvailableException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -48,6 +50,7 @@ class CartIntegrationTest {
 
     @DynamicPropertySource
     static void configureRedis(DynamicPropertyRegistry registry) {
+        registry.add("server.port", () -> 0);
         registry.add("spring.data.redis.host", redis::getHost);
         registry.add("spring.data.redis.port", () -> redis.getMappedPort(6379));
         registry.add("catalog-service.base-url", () -> "http://catalog-service.test");
@@ -122,7 +125,7 @@ class CartIntegrationTest {
     void addItemReturnsNotFoundWhenProductDoesNotExist() throws Exception {
         doThrow(new ProductNotFoundException(999L))
                 .when(catalogClient)
-                .validateProductExists(999L);
+                .validateProductAvailable(999L, 2);
 
         mockMvc.perform(post("/cart/items")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -137,6 +140,48 @@ class CartIntegrationTest {
                 .andExpect(jsonPath("$.title").value("Product not found"))
                 .andExpect(jsonPath("$.status").value(404))
                 .andExpect(jsonPath("$.detail").value("Product with id 999 not found"));
+    }
+
+    @Test
+    void addItemReturnsConflictWhenRequestedQuantityIsGreaterThanAvailableQuantity() throws Exception {
+        doThrow(new ProductQuantityNotAvailableException(10L, 7, 5))
+                .when(catalogClient)
+                .validateProductAvailable(10L, 7);
+
+        mockMvc.perform(post("/cart/items")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "userId": 1,
+                                  "productId": 10,
+                                  "quantity": 7
+                                }
+                                """))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.title").value("Insufficient product quantity"))
+                .andExpect(jsonPath("$.status").value(409))
+                .andExpect(jsonPath("$.detail").value("Product with id 10 has only 5 available items, requested 7"));
+    }
+
+    @Test
+    void addItemReturnsServiceUnavailableWhenCatalogServiceIsUnavailable() throws Exception {
+        doThrow(new CatalogServiceUnavailableException())
+                .when(catalogClient)
+                .validateProductAvailable(10L, 2);
+
+        mockMvc.perform(post("/cart/items")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "userId": 1,
+                                  "productId": 10,
+                                  "quantity": 2
+                                }
+                                """))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.title").value("Catalog service unavailable"))
+                .andExpect(jsonPath("$.status").value(503))
+                .andExpect(jsonPath("$.detail").value("Catalog service is unavailable"));
     }
 
     @Test
@@ -208,6 +253,26 @@ class CartIntegrationTest {
                 .andExpect(jsonPath("$.status").value(400))
                 .andExpect(jsonPath("$.detail").value("Request validation failed"))
                 .andExpect(jsonPath("$.errors.quantity").value("must be greater than 0"));
+    }
+
+    @Test
+    void updateItemQuantityReturnsConflictWhenRequestedQuantityIsGreaterThanAvailableQuantity() throws Exception {
+        addItem(1L, 10L, 2);
+        doThrow(new ProductQuantityNotAvailableException(10L, 7, 5))
+                .when(catalogClient)
+                .validateProductAvailable(10L, 7);
+
+        mockMvc.perform(put("/cart/1/items/10")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "quantity": 7
+                                }
+                                """))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.title").value("Insufficient product quantity"))
+                .andExpect(jsonPath("$.status").value(409))
+                .andExpect(jsonPath("$.detail").value("Product with id 10 has only 5 available items, requested 7"));
     }
 
     @Test

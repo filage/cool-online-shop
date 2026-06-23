@@ -11,6 +11,8 @@ spring:
 
 catalog-service:
   base-url: ${CATALOG_SERVICE_BASE_URL}
+  connect-timeout: ${CATALOG_SERVICE_CONNECT_TIMEOUT:5s}
+  read-timeout: ${CATALOG_SERVICE_READ_TIMEOUT:10s}
 
 logging:
   level:

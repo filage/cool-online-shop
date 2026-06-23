@@ -4,9 +4,11 @@ import com.coolonlineshop.cart.dto.AddCartItemRequest;
 import com.coolonlineshop.cart.dto.CartItemResponse;
 import com.coolonlineshop.cart.dto.CartResponse;
 import com.coolonlineshop.cart.dto.UpdateCartItemQuantityRequest;
+import com.coolonlineshop.cart.exception.CatalogServiceUnavailableException;
 import com.coolonlineshop.cart.exception.CartItemNotFoundException;
 import com.coolonlineshop.cart.exception.GlobalExceptionHandler;
 import com.coolonlineshop.cart.exception.ProductNotFoundException;
+import com.coolonlineshop.cart.exception.ProductQuantityNotAvailableException;
 import com.coolonlineshop.cart.service.CartService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -104,6 +106,46 @@ class CartControllerTest {
     }
 
     @Test
+    void addItemReturnsConflictWhenRequestedQuantityIsGreaterThanAvailableQuantity() throws Exception {
+        when(cartService.addItem(any(AddCartItemRequest.class)))
+                .thenThrow(new ProductQuantityNotAvailableException(10L, 7, 5));
+
+        mockMvc.perform(post("/cart/items")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "userId": 1,
+                                  "productId": 10,
+                                  "quantity": 7
+                                }
+                                """))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.title").value("Insufficient product quantity"))
+                .andExpect(jsonPath("$.status").value(409))
+                .andExpect(jsonPath("$.detail").value("Product with id 10 has only 5 available items, requested 7"));
+    }
+
+    @Test
+    void addItemReturnsServiceUnavailableWhenCatalogServiceIsUnavailable() throws Exception {
+        when(cartService.addItem(any(AddCartItemRequest.class)))
+                .thenThrow(new CatalogServiceUnavailableException());
+
+        mockMvc.perform(post("/cart/items")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "userId": 1,
+                                  "productId": 10,
+                                  "quantity": 2
+                                }
+                                """))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.title").value("Catalog service unavailable"))
+                .andExpect(jsonPath("$.status").value(503))
+                .andExpect(jsonPath("$.detail").value("Catalog service is unavailable"));
+    }
+
+    @Test
     void getCartReturnsCartItems() throws Exception {
         CartResponse response = new CartResponse(
                 1L,
@@ -182,6 +224,27 @@ class CartControllerTest {
                 .andExpect(jsonPath("$.status").value(400))
                 .andExpect(jsonPath("$.detail").value("Request validation failed"))
                 .andExpect(jsonPath("$.errors.quantity").value("must be greater than 0"));
+    }
+
+    @Test
+    void updateItemQuantityReturnsConflictWhenRequestedQuantityIsGreaterThanAvailableQuantity() throws Exception {
+        when(cartService.updateItemQuantity(
+                eq(1L),
+                eq(10L),
+                any(UpdateCartItemQuantityRequest.class)
+        )).thenThrow(new ProductQuantityNotAvailableException(10L, 7, 5));
+
+        mockMvc.perform(put("/cart/1/items/10")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "quantity": 7
+                                }
+                                """))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.title").value("Insufficient product quantity"))
+                .andExpect(jsonPath("$.status").value(409))
+                .andExpect(jsonPath("$.detail").value("Product with id 10 has only 5 available items, requested 7"));
     }
 
     @Test

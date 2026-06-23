@@ -1,9 +1,13 @@
 package com.coolonlineshop.cart.client;
 
+import com.coolonlineshop.cart.exception.CatalogServiceUnavailableException;
 import com.coolonlineshop.cart.exception.ProductNotFoundException;
+import com.coolonlineshop.cart.exception.ProductQuantityNotAvailableException;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
 @Component
@@ -15,24 +19,45 @@ public class RestCatalogClient implements CatalogClient {
             RestClient.Builder restClientBuilder,
             CatalogServiceProperties catalogServiceProperties
     ) {
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(catalogServiceProperties.connectTimeout());
+        requestFactory.setReadTimeout(catalogServiceProperties.readTimeout());
+
         this.restClient = restClientBuilder
                 .baseUrl(catalogServiceProperties.baseUrl())
+                .requestFactory(requestFactory)
                 .build();
     }
 
     @Override
-    public void validateProductExists(Long productId) {
+    public void validateProductAvailable(Long productId, Integer requestedQuantity) {
         try {
-            restClient.get()
+            CatalogProductResponse product = restClient.get()
                     .uri("/products/{productId}", productId)
                     .retrieve()
-                    .toBodilessEntity();
+                    .body(CatalogProductResponse.class);
+
+            if (product == null) {
+                throw new CatalogServiceUnavailableException();
+            }
+            if (requestedQuantity > product.availableQuantity()) {
+                throw new ProductQuantityNotAvailableException(
+                        productId,
+                        requestedQuantity,
+                        product.availableQuantity()
+                );
+            }
         } catch (RestClientResponseException exception) {
             if (exception.getStatusCode().value() == HttpStatus.NOT_FOUND.value()) {
                 throw new ProductNotFoundException(productId);
             }
+            if (exception.getStatusCode().is5xxServerError()) {
+                throw new CatalogServiceUnavailableException();
+            }
 
             throw exception;
+        } catch (RestClientException exception) {
+            throw new CatalogServiceUnavailableException();
         }
     }
 }

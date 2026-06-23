@@ -7,6 +7,7 @@ import com.coolonlineshop.cart.dto.CartResponse;
 import com.coolonlineshop.cart.dto.UpdateCartItemQuantityRequest;
 import com.coolonlineshop.cart.exception.CartItemNotFoundException;
 import com.coolonlineshop.cart.exception.ProductNotFoundException;
+import com.coolonlineshop.cart.exception.ProductQuantityNotAvailableException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -47,7 +48,8 @@ class CartServiceTest {
 
         CartItemResponse response = cartService.addItem(request);
 
-        verify(catalogClient).validateProductExists(10L);
+        verify(hashOperations).get("cart:1", "10");
+        verify(catalogClient).validateProductAvailable(10L, 2);
         verify(hashOperations).increment("cart:1", "10", 2);
         verify(redisTemplate).expire("cart:1", Duration.ofDays(7));
         assertEquals(1L, response.userId());
@@ -59,11 +61,13 @@ class CartServiceTest {
     void addItemIncreasesQuantityWhenSameProductAlreadyExists() {
         AddCartItemRequest request = new AddCartItemRequest(1L, 10L, 3);
         when(redisTemplate.opsForHash()).thenReturn(hashOperations);
+        when(hashOperations.get("cart:1", "10")).thenReturn("2");
         when(hashOperations.increment("cart:1", "10", 3)).thenReturn(5L);
 
         CartItemResponse response = cartService.addItem(request);
 
-        verify(catalogClient).validateProductExists(10L);
+        verify(hashOperations).get("cart:1", "10");
+        verify(catalogClient).validateProductAvailable(10L, 5);
         verify(hashOperations).increment("cart:1", "10", 3);
         verify(redisTemplate).expire("cart:1", Duration.ofDays(7));
         assertEquals(5, response.quantity());
@@ -72,17 +76,38 @@ class CartServiceTest {
     @Test
     void addItemThrowsExceptionWhenProductDoesNotExist() {
         AddCartItemRequest request = new AddCartItemRequest(1L, 999L, 2);
+        when(redisTemplate.opsForHash()).thenReturn(hashOperations);
         doThrow(new ProductNotFoundException(999L))
                 .when(catalogClient)
-                .validateProductExists(999L);
+                .validateProductAvailable(999L, 2);
 
         ProductNotFoundException exception = assertThrows(
                 ProductNotFoundException.class,
                 () -> cartService.addItem(request)
         );
 
-        verify(catalogClient).validateProductExists(999L);
+        verify(hashOperations).get("cart:1", "999");
+        verify(catalogClient).validateProductAvailable(999L, 2);
         assertEquals("Product with id 999 not found", exception.getMessage());
+    }
+
+    @Test
+    void addItemThrowsExceptionWhenRequestedQuantityIsGreaterThanAvailableQuantity() {
+        AddCartItemRequest request = new AddCartItemRequest(1L, 10L, 3);
+        when(redisTemplate.opsForHash()).thenReturn(hashOperations);
+        when(hashOperations.get("cart:1", "10")).thenReturn("4");
+        doThrow(new ProductQuantityNotAvailableException(10L, 7, 5))
+                .when(catalogClient)
+                .validateProductAvailable(10L, 7);
+
+        ProductQuantityNotAvailableException exception = assertThrows(
+                ProductQuantityNotAvailableException.class,
+                () -> cartService.addItem(request)
+        );
+
+        verify(hashOperations).get("cart:1", "10");
+        verify(catalogClient).validateProductAvailable(10L, 7);
+        assertEquals("Product with id 10 has only 5 available items, requested 7", exception.getMessage());
     }
 
     @Test
@@ -125,6 +150,7 @@ class CartServiceTest {
         CartItemResponse response = cartService.updateItemQuantity(1L, 10L, request);
 
         verify(hashOperations).hasKey("cart:1", "10");
+        verify(catalogClient).validateProductAvailable(10L, 5);
         verify(hashOperations).put("cart:1", "10", "5");
         verify(redisTemplate).expire("cart:1", Duration.ofDays(7));
         assertEquals(1L, response.userId());
@@ -148,6 +174,25 @@ class CartServiceTest {
     }
 
     @Test
+    void updateItemQuantityThrowsExceptionWhenRequestedQuantityIsGreaterThanAvailableQuantity() {
+        UpdateCartItemQuantityRequest request = new UpdateCartItemQuantityRequest(7);
+        when(redisTemplate.opsForHash()).thenReturn(hashOperations);
+        when(hashOperations.hasKey("cart:1", "10")).thenReturn(true);
+        doThrow(new ProductQuantityNotAvailableException(10L, 7, 5))
+                .when(catalogClient)
+                .validateProductAvailable(10L, 7);
+
+        ProductQuantityNotAvailableException exception = assertThrows(
+                ProductQuantityNotAvailableException.class,
+                () -> cartService.updateItemQuantity(1L, 10L, request)
+        );
+
+        verify(hashOperations).hasKey("cart:1", "10");
+        verify(catalogClient).validateProductAvailable(10L, 7);
+        assertEquals("Product with id 10 has only 5 available items, requested 7", exception.getMessage());
+    }
+
+    @Test
     void deleteItemDeletesExistingCartItem() {
         when(redisTemplate.opsForHash()).thenReturn(hashOperations);
         when(hashOperations.hasKey("cart:1", "10")).thenReturn(true);
@@ -156,6 +201,7 @@ class CartServiceTest {
 
         verify(hashOperations).hasKey("cart:1", "10");
         verify(hashOperations).delete("cart:1", "10");
+        verify(redisTemplate).expire("cart:1", Duration.ofDays(7));
     }
 
     @Test
