@@ -27,8 +27,8 @@ public class CartService {
         this.catalogClient = catalogClient;
     }
 
-    public CartItemResponse addItem(AddCartItemRequest request) {
-        String key = cartKey(request.userId());
+    public CartItemResponse addItem(Long userId, AddCartItemRequest request) {
+        String key = cartKey(userId);
         String field = request.productId().toString();
 
         HashOperations<String, Object, Object> hashOperations = redisTemplate.opsForHash();
@@ -45,7 +45,7 @@ public class CartService {
         refreshCartTtl(key);
 
         return new CartItemResponse(
-                request.userId(),
+                userId,
                 request.productId(),
                 updatedQuantity.intValue()
         );

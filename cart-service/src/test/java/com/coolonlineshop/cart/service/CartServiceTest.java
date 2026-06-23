@@ -42,11 +42,11 @@ class CartServiceTest {
 
     @Test
     void addItemStoresQuantityInRedisHashAndReturnsResponse() {
-        AddCartItemRequest request = new AddCartItemRequest(1L, 10L, 2);
+        AddCartItemRequest request = new AddCartItemRequest(10L, 2);
         when(redisTemplate.opsForHash()).thenReturn(hashOperations);
         when(hashOperations.increment("cart:1", "10", 2)).thenReturn(2L);
 
-        CartItemResponse response = cartService.addItem(request);
+        CartItemResponse response = cartService.addItem(1L, request);
 
         verify(hashOperations).get("cart:1", "10");
         verify(catalogClient).validateProductAvailable(10L, 2);
@@ -59,12 +59,12 @@ class CartServiceTest {
 
     @Test
     void addItemIncreasesQuantityWhenSameProductAlreadyExists() {
-        AddCartItemRequest request = new AddCartItemRequest(1L, 10L, 3);
+        AddCartItemRequest request = new AddCartItemRequest(10L, 3);
         when(redisTemplate.opsForHash()).thenReturn(hashOperations);
         when(hashOperations.get("cart:1", "10")).thenReturn("2");
         when(hashOperations.increment("cart:1", "10", 3)).thenReturn(5L);
 
-        CartItemResponse response = cartService.addItem(request);
+        CartItemResponse response = cartService.addItem(1L, request);
 
         verify(hashOperations).get("cart:1", "10");
         verify(catalogClient).validateProductAvailable(10L, 5);
@@ -75,7 +75,7 @@ class CartServiceTest {
 
     @Test
     void addItemThrowsExceptionWhenProductDoesNotExist() {
-        AddCartItemRequest request = new AddCartItemRequest(1L, 999L, 2);
+        AddCartItemRequest request = new AddCartItemRequest(999L, 2);
         when(redisTemplate.opsForHash()).thenReturn(hashOperations);
         doThrow(new ProductNotFoundException(999L))
                 .when(catalogClient)
@@ -83,7 +83,7 @@ class CartServiceTest {
 
         ProductNotFoundException exception = assertThrows(
                 ProductNotFoundException.class,
-                () -> cartService.addItem(request)
+                () -> cartService.addItem(1L, request)
         );
 
         verify(hashOperations).get("cart:1", "999");
@@ -93,7 +93,7 @@ class CartServiceTest {
 
     @Test
     void addItemThrowsExceptionWhenRequestedQuantityIsGreaterThanAvailableQuantity() {
-        AddCartItemRequest request = new AddCartItemRequest(1L, 10L, 3);
+        AddCartItemRequest request = new AddCartItemRequest(10L, 3);
         when(redisTemplate.opsForHash()).thenReturn(hashOperations);
         when(hashOperations.get("cart:1", "10")).thenReturn("4");
         doThrow(new ProductQuantityNotAvailableException(10L, 7, 5))
@@ -102,7 +102,7 @@ class CartServiceTest {
 
         ProductQuantityNotAvailableException exception = assertThrows(
                 ProductQuantityNotAvailableException.class,
-                () -> cartService.addItem(request)
+                () -> cartService.addItem(1L, request)
         );
 
         verify(hashOperations).get("cart:1", "10");

@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
@@ -29,36 +30,39 @@ public class CartController {
 
     @PostMapping("/items")
     @ResponseStatus(HttpStatus.CREATED)
-    public CartItemResponse addItem(@Valid @RequestBody AddCartItemRequest request) {
-        return cartService.addItem(request);
+    public CartItemResponse addItem(
+            @RequestHeader("X-User-Id") Long userId,
+            @Valid @RequestBody AddCartItemRequest request
+    ) {
+        return cartService.addItem(userId, request);
     }
 
-    @GetMapping("/{userId}")
-    public CartResponse getCart(@PathVariable Long userId) {
+    @GetMapping
+    public CartResponse getCart(@RequestHeader("X-User-Id") Long userId) {
         return cartService.getCart(userId);
     }
 
-    @PutMapping("/{userId}/items/{productId}")
+    @PutMapping("/items/{productId}")
     public CartItemResponse updateItemQuantity(
-            @PathVariable Long userId,
+            @RequestHeader("X-User-Id") Long userId,
             @PathVariable Long productId,
             @Valid @RequestBody UpdateCartItemQuantityRequest request
     ) {
         return cartService.updateItemQuantity(userId, productId, request);
     }
 
-    @DeleteMapping("/{userId}/items/{productId}")
+    @DeleteMapping("/items/{productId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteItem(
-            @PathVariable Long userId,
+            @RequestHeader("X-User-Id") Long userId,
             @PathVariable Long productId
     ) {
         cartService.deleteItem(userId, productId);
     }
 
-    @DeleteMapping("/{userId}")
+    @DeleteMapping
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void clearCart(@PathVariable Long userId) {
+    public void clearCart(@RequestHeader("X-User-Id") Long userId) {
         cartService.clearCart(userId);
     }
 }

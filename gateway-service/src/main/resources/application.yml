@@ -32,7 +32,7 @@ spring:
               predicates:
                 - Path=/api/cart/**
               filters:
-                - RewritePath=/api/cart/?(?<segment>.*), /cart/$\{segment}
+                - RewritePath=/api/cart(?<segment>/?.*), /cart$\{segment}
             - id: order-service
               uri: ${GATEWAY_ORDER_SERVICE_URL}
               predicates:

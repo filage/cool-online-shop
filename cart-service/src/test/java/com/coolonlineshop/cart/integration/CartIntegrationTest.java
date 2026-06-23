@@ -65,12 +65,13 @@ class CartIntegrationTest {
     }
 
     @Test
-    void addItemCreatesCartItemInRedis() throws Exception {
+    void addItemCreatesCartItemInRedisForHeaderUser() throws Exception {
         mockMvc.perform(post("/cart/items")
+                        .header("X-User-Id", "1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "userId": 1,
+                                  "userId": 999,
                                   "productId": 10,
                                   "quantity": 2
                                 }
@@ -88,10 +89,10 @@ class CartIntegrationTest {
         addItem(1L, 10L, 2);
 
         mockMvc.perform(post("/cart/items")
+                        .header("X-User-Id", "1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "userId": 1,
                                   "productId": 10,
                                   "quantity": 3
                                 }
@@ -105,10 +106,10 @@ class CartIntegrationTest {
     @Test
     void addItemReturnsBadRequestWhenRequestIsInvalid() throws Exception {
         mockMvc.perform(post("/cart/items")
+                        .header("X-User-Id", "1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "userId": null,
                                   "productId": 10,
                                   "quantity": -1
                                 }
@@ -117,7 +118,6 @@ class CartIntegrationTest {
                 .andExpect(jsonPath("$.title").value("Validation failed"))
                 .andExpect(jsonPath("$.status").value(400))
                 .andExpect(jsonPath("$.detail").value("Request validation failed"))
-                .andExpect(jsonPath("$.errors.userId").value("must not be null"))
                 .andExpect(jsonPath("$.errors.quantity").value("must be greater than 0"));
     }
 
@@ -128,10 +128,10 @@ class CartIntegrationTest {
                 .validateProductAvailable(999L, 2);
 
         mockMvc.perform(post("/cart/items")
+                        .header("X-User-Id", "1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "userId": 1,
                                   "productId": 999,
                                   "quantity": 2
                                 }
@@ -149,10 +149,10 @@ class CartIntegrationTest {
                 .validateProductAvailable(10L, 7);
 
         mockMvc.perform(post("/cart/items")
+                        .header("X-User-Id", "1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "userId": 1,
                                   "productId": 10,
                                   "quantity": 7
                                 }
@@ -170,10 +170,10 @@ class CartIntegrationTest {
                 .validateProductAvailable(10L, 2);
 
         mockMvc.perform(post("/cart/items")
+                        .header("X-User-Id", "1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "userId": 1,
                                   "productId": 10,
                                   "quantity": 2
                                 }
@@ -185,11 +185,12 @@ class CartIntegrationTest {
     }
 
     @Test
-    void getCartReturnsItemsFromRedis() throws Exception {
+    void getCartReturnsItemsFromRedisForHeaderUser() throws Exception {
         addItem(1L, 10L, 2);
         addItem(1L, 25L, 1);
 
-        mockMvc.perform(get("/cart/1"))
+        mockMvc.perform(get("/cart")
+                        .header("X-User-Id", "1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.userId").value(1))
                 .andExpect(jsonPath("$.items[0].userId").value(1))
@@ -201,10 +202,11 @@ class CartIntegrationTest {
     }
 
     @Test
-    void updateItemQuantityUpdatesExistingCartItem() throws Exception {
+    void updateItemQuantityUpdatesExistingCartItemForHeaderUser() throws Exception {
         addItem(1L, 10L, 2);
 
-        mockMvc.perform(put("/cart/1/items/10")
+        mockMvc.perform(put("/cart/items/10")
+                        .header("X-User-Id", "1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -216,7 +218,8 @@ class CartIntegrationTest {
                 .andExpect(jsonPath("$.productId").value(10))
                 .andExpect(jsonPath("$.quantity").value(5));
 
-        mockMvc.perform(get("/cart/1"))
+        mockMvc.perform(get("/cart")
+                        .header("X-User-Id", "1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items[0].productId").value(10))
                 .andExpect(jsonPath("$.items[0].quantity").value(5));
@@ -226,7 +229,8 @@ class CartIntegrationTest {
 
     @Test
     void updateItemQuantityReturnsNotFoundWhenCartItemDoesNotExist() throws Exception {
-        mockMvc.perform(put("/cart/1/items/999")
+        mockMvc.perform(put("/cart/items/999")
+                        .header("X-User-Id", "1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -241,7 +245,8 @@ class CartIntegrationTest {
 
     @Test
     void updateItemQuantityReturnsBadRequestWhenRequestIsInvalid() throws Exception {
-        mockMvc.perform(put("/cart/1/items/10")
+        mockMvc.perform(put("/cart/items/10")
+                        .header("X-User-Id", "1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -262,7 +267,8 @@ class CartIntegrationTest {
                 .when(catalogClient)
                 .validateProductAvailable(10L, 7);
 
-        mockMvc.perform(put("/cart/1/items/10")
+        mockMvc.perform(put("/cart/items/10")
+                        .header("X-User-Id", "1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -276,13 +282,15 @@ class CartIntegrationTest {
     }
 
     @Test
-    void deleteItemRemovesCartItem() throws Exception {
+    void deleteItemRemovesCartItemForHeaderUser() throws Exception {
         addItem(1L, 10L, 2);
 
-        mockMvc.perform(delete("/cart/1/items/10"))
+        mockMvc.perform(delete("/cart/items/10")
+                        .header("X-User-Id", "1"))
                 .andExpect(status().isNoContent());
 
-        mockMvc.perform(get("/cart/1"))
+        mockMvc.perform(get("/cart")
+                        .header("X-User-Id", "1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.userId").value(1))
                 .andExpect(jsonPath("$.items").isEmpty());
@@ -290,7 +298,8 @@ class CartIntegrationTest {
 
     @Test
     void deleteItemReturnsNotFoundWhenCartItemDoesNotExist() throws Exception {
-        mockMvc.perform(delete("/cart/1/items/999"))
+        mockMvc.perform(delete("/cart/items/999")
+                        .header("X-User-Id", "1"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.title").value("Cart item not found"))
                 .andExpect(jsonPath("$.status").value(404))
@@ -298,14 +307,16 @@ class CartIntegrationTest {
     }
 
     @Test
-    void clearCartRemovesAllCartItems() throws Exception {
+    void clearCartRemovesAllCartItemsForHeaderUser() throws Exception {
         addItem(1L, 10L, 2);
         addItem(1L, 25L, 1);
 
-        mockMvc.perform(delete("/cart/1"))
+        mockMvc.perform(delete("/cart")
+                        .header("X-User-Id", "1"))
                 .andExpect(status().isNoContent());
 
-        mockMvc.perform(get("/cart/1"))
+        mockMvc.perform(get("/cart")
+                        .header("X-User-Id", "1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.userId").value(1))
                 .andExpect(jsonPath("$.items").isEmpty());
@@ -313,14 +324,14 @@ class CartIntegrationTest {
 
     private void addItem(Long userId, Long productId, Integer quantity) throws Exception {
         mockMvc.perform(post("/cart/items")
+                        .header("X-User-Id", userId.toString())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "userId": %d,
                                   "productId": %d,
                                   "quantity": %d
                                 }
-                                """.formatted(userId, productId, quantity)))
+                                """.formatted(productId, quantity)))
                 .andExpect(status().isCreated());
     }
 
