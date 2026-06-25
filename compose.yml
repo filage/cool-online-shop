@@ -1,4 +1,147 @@
 services:
+  frontend:
+    build:
+      context: ./frontend
+    container_name: cool-online-shop-frontend
+    ports:
+      - "3001:80"
+    depends_on:
+      gateway-service:
+        condition: service_started
+
+  gateway-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.service
+      args:
+        SERVICE_NAME: gateway-service
+    container_name: gateway-service
+    environment:
+      GATEWAY_SERVICE_PORT: ${GATEWAY_SERVICE_PORT}
+      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET}
+      GATEWAY_AUTH_SERVICE_URL: http://auth-service:8081
+      GATEWAY_USER_SERVICE_URL: http://user-service:8082
+      GATEWAY_CATALOG_SERVICE_URL: http://catalog-service:8083
+      GATEWAY_CART_SERVICE_URL: http://cart-service:8084
+      GATEWAY_ORDER_SERVICE_URL: http://order-service:8085
+      GATEWAY_PAYMENT_SERVICE_URL: http://payment-service:8086
+    ports:
+      - "${GATEWAY_SERVICE_PORT}:8080"
+    depends_on:
+      auth-service:
+        condition: service_started
+      user-service:
+        condition: service_started
+      catalog-service:
+        condition: service_started
+      cart-service:
+        condition: service_started
+      order-service:
+        condition: service_started
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.service
+      args:
+        SERVICE_NAME: auth-service
+    container_name: auth-service
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://auth-postgres:5432/${AUTH_DB_NAME}
+      AUTH_DB_USER: ${AUTH_DB_USER}
+      AUTH_DB_PASSWORD: ${AUTH_DB_PASSWORD}
+      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET}
+      AUTH_JWT_EXPIRATION_MINUTES: ${AUTH_JWT_EXPIRATION_MINUTES}
+    ports:
+      - "8081:8081"
+    depends_on:
+      auth-postgres:
+        condition: service_healthy
+
+  user-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.service
+      args:
+        SERVICE_NAME: user-service
+    container_name: user-service
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://user-postgres:5432/${USER_DB_NAME}
+      USER_DB_USER: ${USER_DB_USER}
+      USER_DB_PASSWORD: ${USER_DB_PASSWORD}
+    ports:
+      - "8082:8082"
+    depends_on:
+      user-postgres:
+        condition: service_healthy
+
+  catalog-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.service
+      args:
+        SERVICE_NAME: catalog-service
+    container_name: catalog-service
+    environment:
+      CATALOG_SERVICE_PORT: ${CATALOG_SERVICE_PORT}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://catalog-postgres:5432/${CATALOG_DB_NAME}
+      CATALOG_DB_USER: ${CATALOG_DB_USER}
+      CATALOG_DB_PASSWORD: ${CATALOG_DB_PASSWORD}
+    ports:
+      - "${CATALOG_SERVICE_PORT}:8083"
+    depends_on:
+      catalog-postgres:
+        condition: service_healthy
+
+  cart-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.service
+      args:
+        SERVICE_NAME: cart-service
+    container_name: cart-service
+    environment:
+      CART_SERVICE_PORT: ${CART_SERVICE_PORT}
+      CART_REDIS_HOST: cart-redis
+      CART_REDIS_PORT: 6379
+      CATALOG_SERVICE_BASE_URL: http://catalog-service:8083
+      CATALOG_SERVICE_CONNECT_TIMEOUT: ${CATALOG_SERVICE_CONNECT_TIMEOUT}
+      CATALOG_SERVICE_READ_TIMEOUT: ${CATALOG_SERVICE_READ_TIMEOUT}
+    ports:
+      - "${CART_SERVICE_PORT}:8084"
+    depends_on:
+      cart-redis:
+        condition: service_started
+      catalog-service:
+        condition: service_started
+
+  order-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.service
+      args:
+        SERVICE_NAME: order-service
+    container_name: order-service
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://order-postgres:5432/${ORDER_DB_NAME}
+      ORDER_DB_USER: ${ORDER_DB_USER}
+      ORDER_DB_PASSWORD: ${ORDER_DB_PASSWORD}
+      CART_SERVICE_BASE_URL: http://cart-service:8084
+      CART_SERVICE_CONNECT_TIMEOUT: ${CART_SERVICE_CONNECT_TIMEOUT}
+      CART_SERVICE_READ_TIMEOUT: ${CART_SERVICE_READ_TIMEOUT}
+      CATALOG_SERVICE_BASE_URL: http://catalog-service:8083
+      CATALOG_SERVICE_CONNECT_TIMEOUT: ${CATALOG_SERVICE_CONNECT_TIMEOUT}
+      CATALOG_SERVICE_READ_TIMEOUT: ${CATALOG_SERVICE_READ_TIMEOUT}
+    ports:
+      - "8085:8085"
+    depends_on:
+      order-postgres:
+        condition: service_healthy
+      cart-service:
+        condition: service_started
+      catalog-service:
+        condition: service_started
+
   catalog-postgres:
     image: postgres:16-alpine
     container_name: catalog-postgres
@@ -10,6 +153,11 @@ services:
       - "${CATALOG_DB_PORT}:5432"
     volumes:
       - catalog_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${CATALOG_DB_USER} -d ${CATALOG_DB_NAME}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
 
   user-postgres:
     image: postgres:16-alpine
@@ -22,6 +170,11 @@ services:
       - "${USER_DB_PORT}:5432"
     volumes:
       - user_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${USER_DB_USER} -d ${USER_DB_NAME}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
 
   order-postgres:
     image: postgres:16-alpine
@@ -34,6 +187,11 @@ services:
       - "${ORDER_DB_PORT}:5432"
     volumes:
       - order_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${ORDER_DB_USER} -d ${ORDER_DB_NAME}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
 
   auth-postgres:
     image: postgres:16-alpine
@@ -46,6 +204,11 @@ services:
       - "${AUTH_DB_PORT}:5432"
     volumes:
       - auth_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${AUTH_DB_USER} -d ${AUTH_DB_NAME}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
 
   cart-redis:
     image: redis:7-alpine

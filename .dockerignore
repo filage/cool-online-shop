@@ -1,0 +1,8 @@
+**
+!Dockerfile.service
+!auth-service/target/auth-service-1.0.0-SNAPSHOT.jar
+!user-service/target/user-service-1.0.0-SNAPSHOT.jar
+!catalog-service/target/catalog-service-1.0.0-SNAPSHOT.jar
+!cart-service/target/cart-service-1.0.0-SNAPSHOT.jar
+!order-service/target/order-service-1.0.0-SNAPSHOT.jar
+!gateway-service/target/gateway-service-1.0.0-SNAPSHOT.jar
